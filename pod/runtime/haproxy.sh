@@ -27,7 +27,7 @@ defaults
     timeout tunnel 1d # for wetty's websocket
     # option httplog
 
-backend pod
+backend landing
     server pod1 localhost:3001
     http-request set-header Host localhost
     reqirep ^([^\ :]*)\ /(.*)    \1\ /\2
@@ -62,10 +62,10 @@ frontend localhost
     #acl missing_slash path_reg ^/[^/\.]+$
     #http-request redirect code 301 prefix / drop-query append-slash if missing_slash
 
-    use_backend pod if is_root
+    use_backend landing if is_root
     use_backend wetty if { path_beg /wetty }
     use_backend theia if { path_beg /theia/ }
-    errorfile 503 503.http
+    #errorfile 503 503.http
 EOF
 
     nohup haproxy -f pod.cfg "$@" &

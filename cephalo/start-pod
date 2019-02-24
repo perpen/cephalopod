@@ -16,10 +16,10 @@ pod_name="p$pod_number"
 ssh_port=$(( $POD_PORT_RANGE_START + $pod_number * $POD_PORT_RANGE_WIDTH ))
 # If on chromebook
 [[ "$USER" = henriducrocq ]] && ssh_port=$(( $ssh_port - 1 ))
-ui_port=$(( $ssh_port - 1 ))
+ui_port=$(( $ssh_port + 1 ))
 pod_dir=$(readlink -f $(dirname $0)/../pod)
 
-trap "{ set +x; echo Cleaning up tmp container, ignore errors; docker rm $pod_name ; exit 255; }" EXIT
+# trap "{ docker ps --filter 'name=$pod_name' && docker rm $pod_name ; exit 255; }" EXIT
 
 set -x
 # pod/runtime/entrypoint args: OPTIONS USER USER_DISPLAY_NAME GIT_URL_HOMEDIR [GIT_URL ...]

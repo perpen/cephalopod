@@ -1,4 +1,4 @@
 #!/bin/bash
 set -ex
 cd $(dirname $0)/landing.d
-python -m SimpleHTTPServer 3003
+python -m SimpleHTTPServer 3001

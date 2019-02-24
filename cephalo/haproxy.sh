@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# https://node-a/pod/3 -> http://localhost:3030
+# https://node-a/pod/3/wetty -> http://localhost:3030/wetty
+# https://node-a/pod/3/theia -> http://localhost:3030/theia
+# OR
+# https://pod-3.node-a -> http://localhost:3030
+# https://pod-3.node-a/wetty -> http://localhost:3030/wetty
+# https://pod-3.node-a/theia -> http://localhost:3030/theia
+
+
 set -ex
 
 certs() {
@@ -27,44 +36,22 @@ defaults
     timeout tunnel 1d # for wetty's websocket
     # option httplog
 
-backend pod
-    server pod1 localhost:3003
+    cat <<'EOF' >> pod.cfg
+backend pod3
+    server wetty1 localhost:3030
     http-request set-header Host localhost
-    reqirep ^([^\ :]*)\ /(.*)    \1\ /\2
+    reqirep ^([^\ :]*)\ /pod/3/(.*)    \1\ /\2
     acl response-is-redirect res.hdr(Location) -m found
-    rspirep ^Location:\ http://localhost:3003(.*)   Location:\ http://localhost:3000\1  if response-is-redirect
-
-backend wetty
-    server wetty1 localhost:3001
-    http-request set-header Host localhost
-    #reqirep ^([^\ :]*)\ /wetty/(.*)    \1\ /\2
-    acl response-is-redirect res.hdr(Location) -m found
-    rspirep ^Location:\ http://localhost:3001(.*)   Location:\ http://localhost:3000/wetty\1  if response-is-redirect
+    rspirep ^Location:\ http://localhost:3030(.*)   Location:\ http://localhost:8080/pod/3\1  if response-is-redirect
     acl hdr_set_cookie_path res.hdr(Set-Cookie) -m sub Path=
-    rspirep ^(Set-Cookie:.*)\ Path=/(.*) \1\ Path=/wetty/\2 if hdr_set_cookie_path
+    rspirep ^(Set-Cookie:.*)\ Path=/(.*) \1\ Path=/pod/3/\2 if hdr_set_cookie_path
+EOF
 
-backend theia
-    server theia1 localhost:3002
-    http-request set-header Host localhost
-    reqirep ^([^\ :]*)\ /theia/(.*)    \1\ /\2
-    acl response-is-redirect res.hdr(Location) -m found
-    rspirep ^Location:\ http://localhost:3002\/(.*)   Location:\ http://localhost:3000/theia/\1  if response-is-redirect
-    acl hdr_set_cookie_path res.hdr(Set-Cookie) -m sub Path=
-    rspirep ^(Set-Cookie:.*)\ Path=/(.*) \1\ Path=/theia/\2 if hdr_set_cookie_path
-
+    cat <<'EOF' >> pod.cfg
 frontend localhost
-    # bind *:3000 ssl crt pod.pem
-    bind *:3000
-
-    acl is_root path -i /
-
-    # Redirect eg /wetty to /wetty/
-    #acl missing_slash path_reg ^/[^/\.]+$
-    #http-request redirect code 301 prefix / drop-query append-slash if missing_slash
-
-    use_backend pod if is_root
-    use_backend wetty if { path_beg /wetty }
-    use_backend theia if { path_beg /theia/ }
+    # bind *:443 ssl crt pod.pem
+    bind *:8080
+    use_backend pod3 if { path_beg /pod/3 }
     errorfile 503 503.http
 EOF
 

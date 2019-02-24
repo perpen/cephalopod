@@ -21,9 +21,9 @@ export POD_PROJECTS_URLS="$*"
 # Centos doesn't allow usernames like \d+, so we create a temp user that we
 # then rename.
 tmp_user=x$POD_USER
-adduser -s /bin/bash -G pair $tmp_user && \
-    ( echo "$tmp_user:pass" | chpasswd )
-for file in /etc/passwd /etc/shadow /etc/group /etc/gshadow; do
+adduser -s /bin/bash -G pair $tmp_user
+echo "$tmp_user:pass" | chpasswd
+for file in /etc/{passwd,shadow,shadow-,group,gshadow}; do
     sed -i "s/$tmp_user/$POD_USER/g" $file
 done
 mv /home/{$tmp_user,$POD_USER}
@@ -54,7 +54,8 @@ for ui in $(echo $POD_OPTIONS | tr , '\n' | sort | uniq); do
     *) echo "$0: Ignoring unknown option: $ui" 1>&2 ;;
     esac
 done
-/pod/runtime/haproxy.sh &
+/pod/runtime/landing &
+/pod/runtime/haproxy.sh start -V &
 
 ssh-keygen -A
 /usr/sbin/sshd -D

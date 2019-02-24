@@ -58,7 +58,7 @@ install_wetty() {
 set -e
 source $NVM_DIR/nvm.sh
 cd $dir
-nvm exec $node_version node . --base /wetty --host 0.0.0.0 --port 3001
+nvm exec $node_version node . --base /wetty --host 0.0.0.0 --port 3002
 EOF
     chmod +x /usr/local/bin/pod-wetty
     chmod -R a+rX /usr/local/{bin,src}
@@ -82,7 +82,7 @@ set -e
 source $NVM_DIR/nvm.sh
 export PATH=/usr/local/lib/yarn/bin:$PATH
 cd $dir
-nvm exec $node_version yarn run start --port 3002 "\$@"
+nvm exec $node_version yarn run start --port 3003 "\$@"
 EOF
     chmod +x /usr/local/bin/pod-theia
     chmod -R a+rX /usr/local/{bin,src}
@@ -94,7 +94,7 @@ install_packages() {
     yum update -y
     yum install -y sudo bash vim sudo tmux git openssh openssh-server \
         gnupg2 at unzip gcc gcc-c++ make python-virtualenv openssl \
-        haproxy
+        haproxy net-tools
 }
 
 # dependencies: none
@@ -144,7 +144,7 @@ if [[ -z "$1" ]]; then
     install_yarn
     install_git
     install_wetty
-    install_theia
+    # install_theia
     install_pod
 else
     eval "$@"
