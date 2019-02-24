@@ -5,18 +5,34 @@ set -ex
 
 [[ $# -lt 3 ]] && {
     cat <<EOF 1>&2
-Usage: $0 OPTIONS USER_FULL_NAME GIT_URL_HOMEDIR [GIT_URL ...]
+Usage: $0 OPTIONS USER USER_DISPLAY_NAME GIT_URL_HOMEDIR [GIT_URL ...]
 EOF
     exit 2
 }
 
-options="$1"
-export POD_OWNER="$2"
-homedir_url="$3"
-shift 3
-project_urls="$@"
+export POD_OPTIONS="$1"
+export POD_USER="$2"
+export POD_USER_DISPLAY_NAME="$3"
+export POD_HOMEDIR_URL="$4"
+shift 4
+export POD_PROJECTS_URLS="$*"
 
-su joe -c "/pod/runtime/user-init $project_urls"
+# Setup user
+# Centos doesn't allow usernames like \d+, so we create a temp user that we
+# then rename.
+tmp_user=x$POD_USER
+adduser -s /bin/bash -G pair $tmp_user && \
+    ( echo "$tmp_user:pass" | chpasswd )
+for file in /etc/passwd /etc/shadow /etc/group /etc/gshadow; do
+    sed -i "s/$tmp_user/$POD_USER/g" $file
+done
+mv /home/{$tmp_user,$POD_USER}
+sed -i "s/^\(wheel:.*\)$/\1,$POD_USER/" /etc/group
+sed -i "s/^\(pair:.*\)$/\1,$POD_USER/" /etc/group
+echo $POD_USER >> /etc/at.allow
+
+# Run user init, eg clone projects repos
+su $POD_USER -c "/pod/runtime/user-init $POD_PROJECTS_URLS"
 
 # If this file appears, we stop the container
 set +x
@@ -29,11 +45,16 @@ while :; do
 done &
 set -x
 
-pod-wetty &
-su joe -c pod-theia &
+# Start UIs
+# atm POD_OPTIONS is a comma-separated list of UI names, eg. "wetty,theia"
+for ui in $(echo $POD_OPTIONS | tr , '\n' | sort | uniq); do
+    case $ui in
+    wetty) pod-wetty & ;;
+    theia) su $POD_USER -c pod-theia & ;;
+    *) echo "$0: Ignoring unknown option: $ui" 1>&2 ;;
+    esac
+done
 /pod/runtime/haproxy.sh &
 
-# FIXME - review this, copied from random source
-ssh-keygen -f /etc/ssh/ssh_host_rsa_key -N '' -t rsa
-ssh-keygen -f /etc/ssh/ssh_host_ecdsa_key -N '' -t ecdsa -b 521
+ssh-keygen -A
 /usr/sbin/sshd -D

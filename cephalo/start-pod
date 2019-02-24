@@ -1,0 +1,33 @@
+#!/bin/bash
+# Example:
+# $ start-pod columnated/pod:latest 0 wetty 43880338 "Henri" https://github.com/perpen/pod-linux-home.git https://github.com/krishnasrinivas/wetty.git
+
+set -e
+
+source $(dirname $0)/config.sh
+
+[[ $# -lt 3 ]] && usage "IMAGE POD_NUMBER ENTRYPOINT_PARAM ..."
+
+image="$1"
+pod_number="$2"
+shift 2
+
+pod_name="p$pod_number"
+ssh_port=$(( $POD_PORT_RANGE_START + $pod_number * $POD_PORT_RANGE_WIDTH ))
+# If on chromebook
+[[ "$USER" = henriducrocq ]] && ssh_port=$(( $ssh_port - 1 ))
+ui_port=$(( $ssh_port - 1 ))
+pod_dir=$(readlink -f $(dirname $0)/../pod)
+
+trap "{ set +x; echo Cleaning up tmp container, ignore errors; docker rm $pod_name ; exit 255; }" EXIT
+
+set -x
+# pod/runtime/entrypoint args: OPTIONS USER USER_DISPLAY_NAME GIT_URL_HOMEDIR [GIT_URL ...]
+docker run --rm \
+    --name "$pod_name" \
+    --hostname "$pod_name" \
+    -v $pod_dir:/pod \
+    -p $ssh_port:22 \
+    -p 127.0.0.1:$ui_port:3000 \
+    $image \
+    "$@"

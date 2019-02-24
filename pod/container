@@ -1,0 +1,19 @@
+#!/bin/bash
+# Run this to get a shell on the base image so you can run ./runtime/provision
+# manually.
+
+set -e
+
+image="$1"
+name=tmp
+
+set -x
+docker run \
+    --rm \
+    --name $name \
+    --hostname $name \
+    -p 2999:22 \
+    -p 3000:3001 \
+    -ti \
+    --entrypoint /bin/bash \
+    $image

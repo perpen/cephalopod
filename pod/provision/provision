@@ -105,14 +105,6 @@ install_pod() {
     adduser -s /pod/cli/pod-pairing pair
     ( echo "pair:pair" | chpasswd )
     
-    # main user
-    local user=joe
-    adduser -s /bin/bash -G pair $user && \
-        ( echo "$user:pass" | chpasswd )
-    sed -i "s/^\(wheel:.*\)$/\1,$user/" /etc/group
-    sed -i "s/^\(pair:.*\)$/\1,$user/" /etc/group
-    echo $user >> /etc/at.allow
-
     # sudoers
     echo '%wheel ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
     
