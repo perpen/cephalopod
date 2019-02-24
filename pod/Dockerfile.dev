@@ -1,0 +1,3 @@
+FROM columnated/xpod:latest
+# ENTRYPOINT ["/pod/runtime/entrypoint"]
+CMD ["/bin/bash"]

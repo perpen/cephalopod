@@ -1,0 +1,159 @@
+#!/bin/bash
+# Run from Dockerfile
+#
+# Functions make simple checks to know whether they have been run already,
+# this is to help during development by allowing to call the script repeatedly.
+
+set -ex
+
+installed() {
+    type "$@" &> /dev/null
+}
+
+# dependencies: none
+install_nvm() {
+    [[ -d $NVM_DIR ]] || {
+        mkdir $NVM_DIR
+        /pod/provision/nvm-install.sh
+    }
+    set +x
+    source $NVM_DIR/nvm.sh
+    set -x
+}
+
+# using this wrapper to do set +x, nvm is a very verbose shell function
+nvm_install() {
+    echo running nvm install "$@"
+    set +x
+    nvm install "$@"
+    set -x
+}
+
+# dependencies: yarn tar.gz
+install_yarn() {
+    [[ -d /usr/local/lib/yarn ]] && return
+    cd /usr/local/lib
+    curl -Lo yarn.tar.gz https://yarnpkg.com/latest.tar.gz
+    tar xfz yarn.tar.gz
+    mv yarn-* yarn
+    rm yarn.tar.gz
+}
+
+# dependencies: node version + yarn + wetty tar.gz + npm repo
+install_wetty() {
+    installed wetty && return
+    local node_version=8.11.4
+    cd /usr/local/src
+    curl -o wetty.zip https://codeload.github.com/krishnasrinivas/wetty/zip/master
+    unzip -q wetty.zip
+    rm wetty.zip
+    cd wetty-master
+    nvm_install $node_version
+    yarn
+    yarn build
+    yarn install --production --ignore-scripts --prefer-offline
+    local dir=$(pwd)
+    cat <<EOF > /usr/local/bin/pod-wetty
+#!/bin/bash
+set -e
+source $NVM_DIR/nvm.sh
+cd $dir
+nvm exec $node_version node . --base /wetty --host 0.0.0.0 --port 3001
+EOF
+    chmod +x /usr/local/bin/pod-wetty
+    chmod -R a+rX /usr/local/{bin,src}
+}
+
+# dependencies: node version + yarn + theia tar.gz + npm repo
+install_theia() {
+    installed theia && return
+    local node_version=8.11.4
+    cd /usr/local/src
+    curl -o theia.zip https://codeload.github.com/theia-ide/theia/zip/master
+    unzip -q theia.zip
+    rm theia.zip
+    cd theia-master
+    nvm_install $node_version
+    yarn
+    local dir=$(pwd)/examples/browser
+    cat <<EOF > /usr/local/bin/pod-theia
+#!/bin/bash
+set -e
+source $NVM_DIR/nvm.sh
+export PATH=/usr/local/lib/yarn/bin:$PATH
+cd $dir
+nvm exec $node_version yarn run start --port 3002 "\$@"
+EOF
+    chmod +x /usr/local/bin/pod-theia
+    chmod -R a+rX /usr/local/{bin,src}
+}
+
+# dependencies: yum repos
+install_packages() {
+    installed unzip && return
+    yum update -y
+    yum install -y sudo bash vim sudo tmux git openssh openssh-server \
+        gnupg2 at unzip gcc gcc-c++ make python-virtualenv openssl \
+        haproxy
+}
+
+# dependencies: none
+install_pod() {
+    [[ -L /bin/pod ]] && return
+    
+    # pair user
+    adduser -s /pod/cli/pod-pairing pair
+    ( echo "pair:pair" | chpasswd )
+    
+    # main user
+    local user=joe
+    adduser -s /bin/bash -G pair $user && \
+        ( echo "$user:pass" | chpasswd )
+    sed -i "s/^\(wheel:.*\)$/\1,$user/" /etc/group
+    sed -i "s/^\(pair:.*\)$/\1,$user/" /etc/group
+    echo $user >> /etc/at.allow
+
+    # sudoers
+    echo '%wheel ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+    
+    # pod
+    ln -s /pod/cli/pod /bin
+}
+
+# theia needs a modern git
+# dependencies: git tar.gz, yum repos
+install_git() {
+    [[ -f /usr/local/bin/git ]] && return
+    local packages="curl-devel expat-devel gettext-devel openssl-devel zlib-devel \
+        perl-ExtUtils-MakeMaker"
+    yum remove -y git || true
+    yum install -y $packages
+    curl -Lo- https://www.kernel.org/pub/software/scm/git/git-2.20.1.tar.gz \
+        | tar xfz - -C/usr/local/src
+    cd /usr/local/src/git-*
+    make prefix=/usr/local all
+    make prefix=/usr/local install
+    cd ..
+    rm -rf git-*
+    git --version
+    #FIXME - removes c++?? - yum remove -y $packages
+}
+
+###############
+
+export PATH=/usr/local/lib/yarn/bin:$PATH
+export NVM_DIR=/usr/local/lib/nvm
+
+mkdir -p /usr/local/src
+
+if [[ -z "$1" ]]; then
+    install_packages
+    install_nvm
+    install_yarn
+    install_git
+    install_wetty
+    install_theia
+    install_pod
+else
+    eval "$@"
+fi

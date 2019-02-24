@@ -1,0 +1,39 @@
+#!/bin/bash
+# Dockerfile entry point, runs the non-interactive user-dependent stuff
+
+set -ex
+
+[[ $# -lt 3 ]] && {
+    cat <<EOF 1>&2
+Usage: $0 OPTIONS USER_FULL_NAME GIT_URL_HOMEDIR [GIT_URL ...]
+EOF
+    exit 2
+}
+
+options="$1"
+export POD_OWNER="$2"
+homedir_url="$3"
+shift 3
+project_urls="$@"
+
+su joe -c "/pod/runtime/user-init $project_urls"
+
+# If this file appears, we stop the container
+set +x
+while :; do
+    [[ -f /tmp/pod-must-die ]] && {
+        pkill sshd || true
+        pkill node || true
+    }
+    sleep 5
+done &
+set -x
+
+pod-wetty &
+su joe -c pod-theia &
+/pod/runtime/haproxy.sh &
+
+# FIXME - review this, copied from random source
+ssh-keygen -f /etc/ssh/ssh_host_rsa_key -N '' -t rsa
+ssh-keygen -f /etc/ssh/ssh_host_ecdsa_key -N '' -t ecdsa -b 521
+/usr/sbin/sshd -D

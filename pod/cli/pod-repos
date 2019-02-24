@@ -1,0 +1,47 @@
+#!/bin/bash
+# Show stats about git repos with pending changes
+
+# Detect running in pipe, for tmux status bar
+[[ -t 1 ]] && {
+    bold_on=$(tput smul)
+    bold_off=$(tput rmul)
+}
+
+case $1 in
+"")
+    verbose=true
+    ;;
+"-v")
+    verbose=
+    ;;
+*)
+    cat <<EOF 1>&2
+Usage: pod repos [-v]
+  Prints the number of dirty repos, or nothing.
+  -v Runs git status on each dirty repo
+EOF
+    exit 2
+    ;;
+esac
+
+dirty_count=0
+dirty_repos=""
+
+for git_dir in $(find ~ -type d -a -name .git); do
+    cd $git_dir/..
+    uncommitted=$(git status -s | wc -l)
+    unpushed=$(git log --branches --not --remotes | grep '^commmit ' | wc -l)
+    [[ $(($uncommitted + $unpushed)) -gt 0 ]] && {
+        dirty_count=$(($dirty_count + 1))
+        $verbose echo "${bold_on}Repo: $(pwd)${bold_off}"
+        $verbose git status -s
+        $verbose echo
+    }
+done
+
+[[ $dirty_count -gt 1 ]] && plural=s
+[[ $dirty_count -gt 0 ]] && {
+    echo "${bold_on}$dirty_count dirty repo$plural${bold_off}"
+    exit 1
+}
+exit 0

@@ -1,0 +1,30 @@
+#!/bin/bash
+# Runs under user account. Not interactive, and the user secrets are
+# not yet available.
+
+set -ex
+
+user=$(whoami)
+# FIXME - compute user urls
+https_url=https://github.com/perpen/pod-linux-home.git
+ssh_url=git@github.com:perpen/pod-linux-home.git
+cd
+
+# Clone user config into homedir
+rm -f .bashrc
+git init
+git remote add origin $https_url
+git fetch origin
+git checkout -b master --track origin/master
+sed -i "s#$https_url#$ssh_url#" .git/config
+chmod -R go-rwx .
+
+# Provide default configs if necessary
+[[ -f .tmux.conf ]] || {
+    cp /pod/runtime/default/tmux.conf .tmux.conf
+    chown $user:$user .tmux.conf
+}
+
+# Provide args to user scripts
+mkdir .pod
+echo $* > .pod/args

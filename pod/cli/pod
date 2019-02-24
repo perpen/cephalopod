@@ -1,0 +1,53 @@
+#!/bin/bash
+# Small utilities
+
+set -e
+
+die() {
+    local dirty
+    local prompt=yes
+    pod secrets status || dirty=yes
+    pod repos -v || dirty=yes
+    [[ -z $dirty ]] || {
+        echo
+        echo "This will kill your container and you will lose your changes!"
+        prompt=loser
+    }
+    read -p "Type '$prompt' to confirm: " answer
+    [[ "$answer" != "$prompt" ]] && {
+        echo "Death postponed"
+        exit 1
+    }
+    touch /tmp/pod-must-die
+    sleep 30
+}
+
+args() {
+    cat ~/.pod/args
+}
+
+pairing() {
+    /pod/cli/pod-pairing "$@"
+}
+
+secrets() {
+    /pod/cli/pod-secrets "$@"
+}
+
+repos() {
+    /pod/cli/pod-repos "$@"
+}
+
+tmux() {
+    /pod/cli/pod-tmux "$@"
+}
+
+case $1 in
+die|tmux|args|pairing|secrets|repos)
+    eval "$@"
+    ;;
+*)
+    echo "Usage: $0 (die|tmux|args|pairing|secrets|repos)" 1>&2
+    exit 2
+    ;;
+esac

@@ -1,0 +1,21 @@
+#!/bin/bash
+set -x
+
+user=joe
+container=pod
+image=columnated/xpod
+
+[[ x$1 = x-a ]] && {
+    docker stop $container || true
+    docker rm $container || true
+    docker build -t $image .
+}
+docker run --rm \
+    --name pod \
+    --hostname pod \
+    -v $(pwd):/pod \
+    -p 3000:3000 -p 3022:22 \
+    $image \
+    $user \
+    https://github.com/perpen/pod-linux-home.git \
+    https://github.com/krishnasrinivas/wetty.git
