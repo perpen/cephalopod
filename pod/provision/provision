@@ -44,7 +44,7 @@ install_wetty() {
     installed wetty && return
     local node_version=8.11.4
     cd /usr/local/src
-    curl -o wetty.zip https://codeload.github.com/krishnasrinivas/wetty/zip/master
+    curl -o wetty.zip https://codeload.github.com/perpen/wetty/zip/master
     unzip -q wetty.zip
     rm wetty.zip
     cd wetty-master
@@ -56,9 +56,10 @@ install_wetty() {
     cat <<EOF > /usr/local/bin/pod-wetty
 #!/bin/bash
 set -e
+title="pod $POD_NUMBER"
 source $NVM_DIR/nvm.sh
 cd $dir
-nvm exec $node_version node . --base $1/wetty --host 0.0.0.0 --port 3002
+nvm exec $node_version node . --base $1/wetty --host 0.0.0.0 --port 3002 --title "$title"
 EOF
     chmod +x /usr/local/bin/pod-wetty
     chmod -R a+rX /usr/local/{bin,src}
