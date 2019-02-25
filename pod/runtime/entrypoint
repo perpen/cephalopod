@@ -5,16 +5,17 @@ set -ex
 
 [[ $# -lt 3 ]] && {
     cat <<EOF 1>&2
-Usage: $0 OPTIONS USER USER_DISPLAY_NAME GIT_URL_HOMEDIR [GIT_URL ...]
+Usage: $0 POD_NUMBER OPTIONS USER USER_DISPLAY_NAME GIT_URL_HOMEDIR [GIT_URL ...]
 EOF
     exit 2
 }
 
-export POD_OPTIONS="$1"
-export POD_USER="$2"
-export POD_USER_DISPLAY_NAME="$3"
-export POD_HOMEDIR_URL="$4"
-shift 4
+export POD_NUMBER="$1"
+export POD_OPTIONS="$2"
+export POD_USER="$3"
+export POD_USER_DISPLAY_NAME="$4"
+export POD_HOMEDIR_URL="$5"
+shift 5
 export POD_PROJECTS_URLS="$*"
 
 # Setup user
@@ -49,7 +50,7 @@ set -x
 # atm POD_OPTIONS is a comma-separated list of UI names, eg. "wetty,theia"
 for ui in $(echo $POD_OPTIONS | tr , '\n' | sort | uniq); do
     case $ui in
-    wetty) pod-wetty & ;;
+    wetty) pod-wetty /pod/$POD_NUMBER & ;;
     theia) su $POD_USER -c pod-theia & ;;
     *) echo "$0: Ignoring unknown option: $ui" 1>&2 ;;
     esac

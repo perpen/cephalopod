@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# https://node-a/pod/3 -> http://localhost:3030
-# https://node-a/pod/3/wetty -> http://localhost:3030/wetty
-# https://node-a/pod/3/theia -> http://localhost:3030/theia
+# https://node-a/pod/3 -> http://localhost:3031
+# https://node-a/pod/3/wetty -> http://localhost:3031/wetty
+# https://node-a/pod/3/theia -> http://localhost:3031/theia
 # OR
-# https://pod-3.node-a -> http://localhost:3030
-# https://pod-3.node-a/wetty -> http://localhost:3030/wetty
-# https://pod-3.node-a/theia -> http://localhost:3030/theia
+# https://pod-3.node-a -> http://localhost:3031
+# https://pod-3.node-a/wetty -> http://localhost:3031/wetty
+# https://pod-3.node-a/theia -> http://localhost:3031/theia
 
 
 set -ex
@@ -20,8 +20,8 @@ certs() {
 
 start() {
     cat <<EOF > 503.http
-HTTP/1.0 301 Go root
-Location: http://localhost:3000
+HTTP/1.0 301 Go root portal
+Location: http://localhost:8080
 
 EOF
 
@@ -34,15 +34,16 @@ defaults
     timeout client 2s
     timeout server 2s
     timeout tunnel 1d # for wetty's websocket
-    # option httplog
+    option httplog
+EOF
 
     cat <<'EOF' >> pod.cfg
 backend pod3
-    server wetty1 localhost:3030
+    server pod3 localhost:3031
     http-request set-header Host localhost
     reqirep ^([^\ :]*)\ /pod/3/(.*)    \1\ /\2
     acl response-is-redirect res.hdr(Location) -m found
-    rspirep ^Location:\ http://localhost:3030(.*)   Location:\ http://localhost:8080/pod/3\1  if response-is-redirect
+    rspirep ^Location:\ http://localhost:3031(.*)   Location:\ http://localhost:8080/pod/3\1  if response-is-redirect
     acl hdr_set_cookie_path res.hdr(Set-Cookie) -m sub Path=
     rspirep ^(Set-Cookie:.*)\ Path=/(.*) \1\ Path=/pod/3/\2 if hdr_set_cookie_path
 EOF
@@ -52,7 +53,7 @@ frontend localhost
     # bind *:443 ssl crt pod.pem
     bind *:8080
     use_backend pod3 if { path_beg /pod/3 }
-    errorfile 503 503.http
+    # errorfile 503 503.http
 EOF
 
     # nohup haproxy -f pod.cfg "$@" &

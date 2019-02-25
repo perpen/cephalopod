@@ -1,6 +1,6 @@
 #!/bin/bash
 # Example:
-# $ start-pod columnated/pod:latest 0 wetty 43880338 "Henri" https://github.com/perpen/pod-linux-home.git https://github.com/krishnasrinivas/wetty.git
+# $ ./start-pod columnated/pod:latest 0 wetty 43880338 "Henri" https://github.com/perpen/pod-linux-home.git https://github.com/krishnasrinivas/wetty.git
 
 set -e
 
@@ -15,7 +15,7 @@ shift 2
 pod_name="p$pod_number"
 ssh_port=$(( $POD_PORT_RANGE_START + $pod_number * $POD_PORT_RANGE_WIDTH ))
 # If on chromebook
-[[ "$USER" = henriducrocq ]] && ssh_port=$(( $ssh_port - 1 ))
+# [[ "$USER" = henriducrocq ]] && ssh_port=$(( $ssh_port - 1 ))
 ui_port=$(( $ssh_port + 1 ))
 pod_dir=$(readlink -f $(dirname $0)/../pod)
 
@@ -28,6 +28,6 @@ docker run --rm \
     --hostname "$pod_name" \
     -v $pod_dir:/pod \
     -p $ssh_port:22 \
-    -p 127.0.0.1:$ui_port:3000 \
+    -p $ui_port:3000 \
     $image \
-    "$@"
+    $pod_number "$@"
