@@ -50,13 +50,11 @@ set -x
 # atm POD_OPTIONS is a comma-separated list of UI names, eg. "wetty,theia"
 for ui in $(echo $POD_OPTIONS | tr , '\n' | sort | uniq); do
     case $ui in
-    wetty) pod-wetty /pod/$POD_NUMBER & ;;
+    wetty) pod-wetty "pod $POD_NUMBER" & ;;
     theia) su $POD_USER -c pod-theia & ;;
     *) echo "$0: Ignoring unknown option: $ui" 1>&2 ;;
     esac
 done
-/pod/runtime/landing &
-/pod/runtime/haproxy.sh start -V &
 
 ssh-keygen -A
 /usr/sbin/sshd -D

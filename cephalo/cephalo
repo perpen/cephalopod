@@ -1,4 +1,14 @@
 #!/bin/bash
 set -ex
 
+NVM_DIR=/usr/local/lib/nvm
 
+cd $(dirname $0)
+source $NVM_DIR/nvm.sh
+nvm install 8.11.4
+
+while :; do
+    date
+    node cephalo.js
+    sleep 60
+done

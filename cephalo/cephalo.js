@@ -1,55 +1,82 @@
-var http = require('http');
+/*
+https://node-a/pod/3 -> pod-home app
+https://node-a/pod/3/wetty -> http://localhost:3031/wetty
+https://node-a/pod/3/theia -> http://localhost:3032/theia
+*/
+
+const http = require('http');
+const url = require('url');
+const fs = require('fs');
+const path = require('path');
 
 const PORT = 8080;
 const INTERFACE = '127.0.0.1';
 const USER = null;
+const POD_PORT_RANGE_START = 3000
+const POD_PORT_RANGE_WIDTH = 10
 
-var THEIA_PATH_RX = new RegExp('^/theia($|/.*)');
-function theia(req) {
-  var matches = THEIA_PATH_RX.exec(req.url);
-  if (!matches) return null;
-  return null;
-}
+const HOME_HTML = `
+<html>
+  <head>
+    <title>pod</title>
+  </head>
+  <body>
+    <div>
+      <h2>pod</h2>
+      Created by joe <br>
+      <br>
+      UIs:<br>
+      <a href="/wetty/">wetty</a> <br>
+      <a href="/theia/">theia</a> (stopped) <br>
+      <br>
+      <pre>$ pod (wetty|theia) (start|stop)</pre>
+    </div>
+  </body>
+</html>`;
 
-var WETTY_PATH_RX = new RegExp('^/wetty(/.*)?$');
-function wetty(req) {
-    console.log("req.url: '" + req.url + '"');
-    var matches = WETTY_PATH_RX.exec(req.url);
-    if (!matches) return null;
+const UI_PATH_RX = new RegExp('^(/pod/(\\d+))((/(wetty|theia))(/.*)?)$');
+function wetty(req, res) {
+    var pre = function(req) {
+        var matches = UI_PATH_RX.exec(req.url);
+        if (!matches) return null;
 
-    var path = matches[1];
-    req.headers['host'] = '127.0.0.1';
+        req.headers['host'] = "127.0.0.1";
+        // used to rewrite response cookies from post()
+        req.wetty_context = matches[1] + matches[4];
+        var pod_number = parseInt(matches[2]);
+        var pod_port = POD_PORT_RANGE_START + POD_PORT_RANGE_WIDTH * pod_number + 1;
 
-    return {
-        host: "127.0.0.1",
-        port: 3002,
-        method: req.method,
-        path: path,
-        headers: req.headers
+        return {
+            host: "127.0.0.1",
+            port: pod_port,
+            method: req.method,
+            path: (matches[6] || '/'),
+            headers: req.headers
+        };
     };
+    var post = function(req, res) {
+        var cooks = res.headers['set-cookie'];
+        if (cooks) {
+            var new_cooks = [cooks[0].replace(/^(.* Path=)(.*)$/, "$1" + req.wetty_context + "$2")];
+            res.headers['set-cookie'] = new_cooks;
+        }
+        return res;
+    };
+    return proxyHack(pre, post, req, res);
 }
 
-var BACKENDS = [theia, wetty];
-
-var handler = function(req, res) {
+function proxyHack(pre, post, req, res) {
 
     console.log("Request for " + req.url);
 
-    var proxy_params = null;
-    for (let backend of BACKENDS) {
-        if (proxy_params = backend(req)) break;
-    }
+    var proxy_params = pre(req);
     if (proxy_params == null) {
-        console.log("ERROR Request for " + req.url + ": no handler found");
-        res.writeHead(503, {
-            'content-type': 'text/html'
-        });
-        res.end('cannot handle it');
-        return;
+        return false;
     }
-    console.log("proxy_params: " + proxy_params);
+    console.log(proxy_params);
 
     var proxy_req = http.request(proxy_params, function(proxy_res) {
+        proxy_res = post(req, proxy_res);
         if (proxy_res.headers.connection) {
             if (req.headers.connection) {
                 proxy_res.headers.connection = req.headers.connection;
@@ -59,10 +86,7 @@ var handler = function(req, res) {
         }
 
         res.writeHead(proxy_res.statusCode, proxy_res.headers);
-        /**
-         * No 'data' event and no 'end'
-         * Missing this will lead to oddness - don't ask.
-         */
+        // No 'data' event and no 'end' * Missing this will lead to oddness - don't ask.??? FIXME
         if (proxy_res.statusCode === 304) {
             res.end();
             return;
@@ -90,6 +114,8 @@ var handler = function(req, res) {
     req.addListener('end', function() {
         proxy_req.end();
     });
+
+    return true;
 }
 
 process.on('uncaughtException', function(err) {
@@ -134,7 +160,7 @@ var fileHandler = function (req, res) {
 };
 
 const handler = function(req, res) {
-    proxyHandler(req, res) || fileHandler(req, res);
+    wetty(req, res) || fileHandler(req, res);
 }
 
 http.createServer().addListener("request", handler).listen(PORT, INTERFACE);
@@ -144,4 +170,4 @@ if (USER) {
     process.setuid(USER);
 }
 
-console.log("Awaiting requests ...");
+console.log(`Serving on ${INTERFACE}:${PORT}`);

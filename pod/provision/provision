@@ -56,10 +56,10 @@ install_wetty() {
     cat <<EOF > /usr/local/bin/pod-wetty
 #!/bin/bash
 set -e
-title="pod $POD_NUMBER"
+title="$1"
 source $NVM_DIR/nvm.sh
 cd $dir
-nvm exec $node_version node . --base $1/wetty --host 0.0.0.0 --port 3002 --title "$title"
+nvm exec $node_version node . --base / --host 0.0.0.0 --port 3000 --title "$title"
 EOF
     chmod +x /usr/local/bin/pod-wetty
     chmod -R a+rX /usr/local/{bin,src}
@@ -83,7 +83,7 @@ set -e
 source $NVM_DIR/nvm.sh
 export PATH=/usr/local/lib/yarn/bin:$PATH
 cd $dir
-nvm exec $node_version yarn run start --port 3003 "\$@"
+nvm exec $node_version yarn run start --port 3001 "\$@"
 EOF
     chmod +x /usr/local/bin/pod-theia
     chmod -R a+rX /usr/local/{bin,src}

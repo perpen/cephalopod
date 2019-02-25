@@ -4,9 +4,13 @@
 
 set -e
 
-source $(dirname $0)/config.sh
+POD_PORT_RANGE_START=3000
+POD_PORT_RANGE_WIDTH=10
 
-[[ $# -lt 3 ]] && usage "IMAGE POD_NUMBER ENTRYPOINT_PARAM ..."
+[[ $# -lt 3 ]] && {
+    echo "Usage: $(basename $0) IMAGE POD_NUMBER ENTRYPOINT_PARAM ..." 1>&2
+    exit 2
+}
 
 image="$1"
 pod_number="$2"
@@ -14,12 +18,9 @@ shift 2
 
 pod_name="p$pod_number"
 ssh_port=$(( $POD_PORT_RANGE_START + $pod_number * $POD_PORT_RANGE_WIDTH ))
-# If on chromebook
-# [[ "$USER" = henriducrocq ]] && ssh_port=$(( $ssh_port - 1 ))
-ui_port=$(( $ssh_port + 1 ))
+wetty_port=$(( $ssh_port + 1 ))
+theia_port=$(( $ssh_port + 2 ))
 pod_dir=$(readlink -f $(dirname $0)/../pod)
-
-# trap "{ docker ps --filter 'name=$pod_name' && docker rm $pod_name ; exit 255; }" EXIT
 
 set -x
 # pod/runtime/entrypoint args: OPTIONS USER USER_DISPLAY_NAME GIT_URL_HOMEDIR [GIT_URL ...]
@@ -28,6 +29,7 @@ docker run --rm \
     --hostname "$pod_name" \
     -v $pod_dir:/pod \
     -p $ssh_port:22 \
-    -p $ui_port:3000 \
+    -p $wetty_port:3000 \
+    -p $theia_port:3001 \
     $image \
     $pod_number "$@"

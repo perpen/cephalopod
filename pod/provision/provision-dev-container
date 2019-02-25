@@ -1,7 +1,0 @@
-#!/bin/bash
-
-# Runs a shell with /pod mount, so we can run /pod/provision/provision manually
-# during its development.
-
-cd $(dirname $0)/..
-docker run --rm -ti centos:7 -v $(pwd):/pod -p 3000:3000 -p 3022:22 bash
