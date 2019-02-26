@@ -121,7 +121,7 @@ login() {
 }
 
 status() {
-    if ls -ld $(dirname $socket) | egrep -q '^s...r'; then
+    if ls -ld $(dirname $socket) | egrep -q '^d...r'; then
         local clients_count=$(_clients all | wc -l)
         echo "$(< $mode_path) ($clients_count)"
     else

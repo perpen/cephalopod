@@ -1,5 +1,5 @@
 #!/bin/bash
-# Small utilities
+# cli utilities
 
 set -e
 
@@ -26,24 +26,11 @@ args() {
     cat ~/.pod/args
 }
 
-pairing() {
-    /pod/cli/pod-pairing "$@"
-}
-
-secrets() {
-    /pod/cli/pod-secrets "$@"
-}
-
-repos() {
-    /pod/cli/pod-repos "$@"
-}
-
-tmux() {
-    /pod/cli/pod-tmux "$@"
-}
-
 case $1 in
-die|tmux|args|pairing|secrets|repos)
+tmux|pairing|secrets|repos)
+    eval /pod/cli/pod-"$@"
+    ;;
+die|args)
     eval "$@"
     ;;
 *)

@@ -14,7 +14,7 @@ installed() {
 install_nvm() {
     [[ -d $NVM_DIR ]] || {
         mkdir $NVM_DIR
-        /pod/provision/nvm-install.sh
+        /pod/build/nvm-install.sh
     }
     set +x
     source $NVM_DIR/nvm.sh
@@ -94,7 +94,8 @@ install_packages() {
     installed unzip && return
     yum update -y
     yum install -y sudo bash vim sudo tmux git openssh openssh-server \
-        gnupg2 at unzip gcc gcc-c++ make python-virtualenv openssl \
+        gnupg2 at unzip gcc gcc-c++ make automake \
+        python-virtualenv openssl \
         haproxy net-tools
 }
 
@@ -132,6 +133,28 @@ install_git() {
     #FIXME - removes c++?? - yum remove -y $packages
 }
 
+# the tmux from yum is dusty
+# dependencies: tmux tar.gz, yum repos
+install_tmux() {
+    [[ -f /usr/local/bin/tmux ]] && return
+    local packages="libevent-devel ncurses-devel"
+    yum remove -y tmux || true
+    yum install -y $packages
+    cd /usr/local/src
+    curl -L -o tmux.zip https://github.com/tmux/tmux/archive/master.zip
+    unzip -q tmux.zip
+    rm tmux.zip
+    cd tmux-*
+    sh autogen.sh
+    ./configure
+    make
+    make install
+    cd ..
+    rm -rf tmuxd-*
+    tmux -V
+    #FIXME - removes c++?? - yum remove -y $packages
+}
+
 ###############
 
 export PATH=/usr/local/lib/yarn/bin:$PATH
@@ -144,8 +167,9 @@ if [[ -z "$1" ]]; then
     install_nvm
     install_yarn
     install_git
+    install_tmux
     install_wetty
-    # install_theia
+    install_theia
     install_pod
 else
     eval "$@"

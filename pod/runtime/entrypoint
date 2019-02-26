@@ -19,10 +19,10 @@ shift 5
 export POD_PROJECTS_URLS="$*"
 
 # Setup user
-# Centos doesn't allow usernames like \d+, so we create a temp user that we
+# Centos doesn't allow usernames like \d+, so we create a temp user which we
 # then rename.
 tmp_user=x$POD_USER
-adduser -s /bin/bash -G pair $tmp_user
+adduser -s /bin/bash -g pair $tmp_user
 echo "$tmp_user:pass" | chpasswd
 for file in /etc/{passwd,shadow,shadow-,group,gshadow}; do
     sed -i "s/$tmp_user/$POD_USER/g" $file

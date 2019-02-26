@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run this to get a shell on the base image so you can run ./runtime/provision
+# Run this to get a shell on the base image so you can run ./dev/provision
 # manually.
 
 set -e
@@ -12,9 +12,9 @@ docker run \
     --rm \
     --name $name \
     --hostname $name \
-    -p 3022:22 \
-    -p 3000:3000 \
-    -p 3001:3001 \
+    -p 3000:22 \
+    -p 3001:3000 \
+    -p 3002:3001 \
     -ti \
     --entrypoint /bin/bash \
     $image

@@ -1,7 +1,7 @@
 /*
 https://node-a/pod/3 -> pod-home app
-https://node-a/pod/3/wetty -> http://localhost:3031/wetty
-https://node-a/pod/3/theia -> http://localhost:3032/theia
+https://node-a/pod/3/wetty -> http://localhost:3031
+https://node-a/pod/3/theia -> http://localhost:3032
 */
 
 const http = require('http');
@@ -15,68 +15,80 @@ const USER = null;
 const POD_PORT_RANGE_START = 3000
 const POD_PORT_RANGE_WIDTH = 10
 
-const HOME_HTML = `
-<html>
-  <head>
-    <title>pod</title>
-  </head>
-  <body>
-    <div>
-      <h2>pod</h2>
-      Created by joe <br>
-      <br>
-      UIs:<br>
-      <a href="/wetty/">wetty</a> <br>
-      <a href="/theia/">theia</a> (stopped) <br>
-      <br>
-      <pre>$ pod (wetty|theia) (start|stop)</pre>
-    </div>
-  </body>
-</html>`;
+const HOME_PATH_RX = new RegExp('^/pod/(\\d+)/?$');
+
+function home(req, res) {
+    var matches = HOME_PATH_RX.exec(req.url);
+    if (!matches) return false;
+
+    var pod_number = parseInt(matches[1]);
+    var owner = 'Joe';
+
+    res.setHeader('Content-type', 'text/html');
+    const html = `
+      <html>
+        <head>
+          <title>pod ${pod_number}</title>
+        </head>
+        <body>
+          <div>
+            <h2>pod ${pod_number}</h2>
+            Owner: ${owner}<br>
+            <pre style="white-space:pre-line;">docker run --rm --name p3 --hostname p3 -v /home/henriducrocq/src/cephalopod/pod:/pod -p3030:22 -p 3031:3000 -p 3032:3001 columnated/pod:latest 3 wetty 43880338 Henri https://github.com/perpen/pod-linux-home.git https://github.com/krishnasrinivas/wetty.git</pre>
+            <a href="/pod/${pod_number}/wetty/">wetty</a> <br>
+            <a href="/pod/${pod_number}/theia/">theia</a> (stopped) <br>
+          </div>
+          <div>
+            <h1>idea</h1>
+            <h2>pod ${pod_number}</h2>
+            Owner: ${owner}<br>
+            <br>
+            To start <a href="/pod/${pod_number}/wetty/">wetty</a> enter the password for Joe:
+            <input type="password" name="password"/>
+          </div>
+        </body>
+      </html>`;
+
+    res.end(html);
+    return true;
+};
 
 const UI_PATH_RX = new RegExp('^(/pod/(\\d+))((/(wetty|theia))(/.*)?)$');
-function wetty(req, res) {
-    var pre = function(req) {
+
+function ui(req, res) {
+
+    console.log("Request for " + req.url);
+
+    var proxy_params;
+    {
         var matches = UI_PATH_RX.exec(req.url);
-        if (!matches) return null;
+        if (!matches) return false;
 
         req.headers['host'] = "127.0.0.1";
         // used to rewrite response cookies from post()
-        req.wetty_context = matches[1] + matches[4];
+        req.ui_context = matches[1] + matches[4];
         var pod_number = parseInt(matches[2]);
         var pod_port = POD_PORT_RANGE_START + POD_PORT_RANGE_WIDTH * pod_number + 1;
 
-        return {
+        proxy_params = {
             host: "127.0.0.1",
             port: pod_port,
             method: req.method,
             path: (matches[6] || '/'),
             headers: req.headers
         };
-    };
-    var post = function(req, res) {
-        var cooks = res.headers['set-cookie'];
-        if (cooks) {
-            var new_cooks = [cooks[0].replace(/^(.* Path=)(.*)$/, "$1" + req.wetty_context + "$2")];
-            res.headers['set-cookie'] = new_cooks;
-        }
-        return res;
-    };
-    return proxyHack(pre, post, req, res);
-}
-
-function proxyHack(pre, post, req, res) {
-
-    console.log("Request for " + req.url);
-
-    var proxy_params = pre(req);
+    }
     if (proxy_params == null) {
         return false;
     }
     console.log(proxy_params);
 
     var proxy_req = http.request(proxy_params, function(proxy_res) {
-        proxy_res = post(req, proxy_res);
+        var cooks = proxy_res.headers['set-cookie'];
+        if (cooks) {
+            var new_cooks = [cooks[0].replace(/^(.* Path=)(.*)$/, "$1" + req.ui_context + "$2")];
+            proxy_res.headers['set-cookie'] = new_cooks;
+        }
         if (proxy_res.headers.connection) {
             if (req.headers.connection) {
                 proxy_res.headers.connection = req.headers.connection;
@@ -86,7 +98,7 @@ function proxyHack(pre, post, req, res) {
         }
 
         res.writeHead(proxy_res.statusCode, proxy_res.headers);
-        // No 'data' event and no 'end' * Missing this will lead to oddness - don't ask.??? FIXME
+        // FIXME ???
         if (proxy_res.statusCode === 304) {
             res.end();
             return;
@@ -118,13 +130,7 @@ function proxyHack(pre, post, req, res) {
     return true;
 }
 
-process.on('uncaughtException', function(err) {
-    console.log("ERROR:" + err);
-    console.log(err.stack);
-});
-
-// FIXME - does the path thing sanitise path eg ../ ??
-var fileHandler = function (req, res) {
+function fileHandler(req, res) {
   console.log(`${req.method} ${req.url}`);
 
   const parsedUrl = url.parse(req.url);
@@ -159,8 +165,15 @@ var fileHandler = function (req, res) {
   })
 };
 
+//////////////////////////////////////////////////
+
+process.on('uncaughtException', function(err) {
+    console.log("ERROR:" + err);
+    console.log(err.stack);
+});
+
 const handler = function(req, res) {
-    wetty(req, res) || fileHandler(req, res);
+    home(req, res) || ui(req, res) || fileHandler(req, res);
 }
 
 http.createServer().addListener("request", handler).listen(PORT, INTERFACE);

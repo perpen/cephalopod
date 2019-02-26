@@ -1,6 +1,6 @@
 #!/bin/bash
 # tmux utilities
-exit 0
+#exit 0
 
 set -e
 
@@ -34,23 +34,23 @@ v3() {
     tmux split-window -h -c "$dir"
     tmux split-window -v -c "$dir"
     tmux select-pane -t 0
-    tmux send-keys vim 'Enter'
+    tmux send-keys vim 'Space' . 'Enter'
     tmux select-pane -t 1
-    tmux send-keys 'ls -la' 'Enter'
 }
 
 init() {
+    ls ~/src/* &> /dev/null || return 0
     for repo in ~/src/*; do
         v3 $repo
     done
 }
 
 case $1 in
-init|status|message|banner|layout3h|v3)
+init|status|message|banner|h3|v3)
     eval "$@"
     ;;
 *)
-    echo "Usage: $0 (status|message|banner|layout3h|v3)" 1>&2
+    echo "Usage: $0 (status|message|banner|h3|v3)" 1>&2
     exit 2
     ;;
 esac
