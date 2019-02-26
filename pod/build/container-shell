@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run this to get a shell on the base image so you can run ./dev/provision
+# Run this to get a shell on the base image so you can run ./build/provision
 # manually.
 
 set -e
