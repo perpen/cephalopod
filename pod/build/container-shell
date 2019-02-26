@@ -16,5 +16,6 @@ docker run \
     -p 3001:3000 \
     -p 3002:3001 \
     -ti \
+    -v $(readlink -f $(dirname $0)/..):/pod \
     --entrypoint /bin/bash \
     $image

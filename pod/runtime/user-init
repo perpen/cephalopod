@@ -24,7 +24,3 @@ chmod -R go-rwx .
     cp /pod/runtime/default/tmux.conf .tmux.conf
     chown $user:$user .tmux.conf
 }
-
-# Provide args to user scripts
-mkdir .pod
-echo $* > .pod/args

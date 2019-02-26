@@ -1,19 +1,5 @@
 NEXT
 ====
-- init
-  - form
-      - secrets key
-  - decrypt secrets
-  - clone repos
-- ssh
-  - form: terminal
-- wetty
-  - form: web
-- theia
-  - form: web
-
-process:
-- sshd + wetty + theia
 
 PORTAL
 ======
@@ -25,14 +11,15 @@ PORTAL
   - Nicer to search for urls on browser than on tty
 - User should be able to request pod with curl, then just ssh into it
   $ curl http://pod-portal/pod -F image=tooling -F home=<home url> -F user=43880338
-  {url: http://pod3/<pod id>,
+  {url: http://pod/<pod id>,
    estimated-days-left: 4,
-   ssh: {port: 45917, host: pod3, cmd: "ssh -p 45917 joe@pod3"}}
+   ssh: {port: 3030, host: node-a, number: 3, cmd: "ssh -p 3030 joe@node-a"}}
+- the pod page shows the current user's recent pods and archives, and provides button to restore.
 - Link in a README:
   http://pod-portal/create?image=tooling&home=<home url>&projects=<project url>
   - When clicked, opens page prompting for staff id.
 - For HA, have portal run on all nodes, and they talk to each other to share
-  load data.
+  load/age data.
 - Use param or user-agent or accept header to decide whether to show launch page?
 - pod creation:
   - find available range of 10 ports
@@ -42,13 +29,14 @@ PORTAL
     - 1: UIs, ssl terminating in pod's haproxy
     - n: tcp
   - to use:
-    - ssh pods-a.sit.modelt -p 2010
-    - chrome https://pods-a.sit.modelt:2011/wetty
-    - later? chrome https://p1.pods-a.sit.modelt/wetty
-      - easy to do with a arithmetic in haproxy, p(\d+) -> localhost:2000+(10*\1)
-  - create dns for pod-ID.pods.sit.modelt
-  - create proxy entry for https://<current node>/pod/<name>
-
+    - ssh node-a.sit.modelt -p 3030
+    - chrome https://node-a.sit.modelt:3031/pod/3/wetty
+- starting UIs
+  - a placeholder server constantly monitors the UIs and starts a server on their
+    port if they are not running.
+  - if there are unencrypted secrets, it asks for decryption key
+  - placeholder asks for owner password before starting UI
+  - it stops its server on the UI port, then starts UI
 
 FLOW
 ====
@@ -61,20 +49,16 @@ FLOW
     - Calls /pod/user-init under user's uid
         - Clones user's linux-home
 - Login
-    - /pod/pod-profile.sh called by user's .bash_profile
+    - /pod/pod-profile.sh sourced by user's .bash_profile
         - Decrypts user secrets
         - Clones projects into ~/src        
         - Starts tmux
 
 TODO
 ====
-- expose port in container - tcp auto-ingress?
+- lint js
 - portal:
   - input: linux-home url required, projects urls optional
-  - portal is a k8s app which gets info from url or form, then redirects to
-    the new pod.
-  - http://localhost:3000/pod?projects=FXT/bundle-keepie:policies,43880338/noci
-  - support branches. what if multiple branches of same repo? not happen
 - project specifics
   - project can have .pod config with preferred image and optionally version
 - ldap login (either integrated, or on login)
@@ -87,8 +71,6 @@ TODO
           http://stash/joe/secrets \\
           --repos http://stash/fxt/model-t-build,http://stash/fxt/bundle-keepie
 - copy/paste
-- hostname on k8s
-  See https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pods
 - Name parameter? Appended to owner name (real name instead of staff id?)
 - security:
   - ssl, supported by wetty
@@ -103,22 +85,12 @@ TODO
   - stop pairing when owner disconnects. is timeout still necessary?
 - garbage collecting
   - delete container w/o connection for 2 hours
-- fancy stuff
-  - initialise tmux with 1 window per project, and the 3 panes
-- find simple init method for tmux
-- tab title should be pod name
 - use chromium standalone app to get all keyboard shortcuts?
-- gender-neutral instead of joe, "user"?
 - ssh should only login by ssh key?
-- move pod* scripts to /pod/cli
-- rewrite pod script case stmt to looking commands pod-*
-- haproxy should default to page with instructions re. starting wetty or theia
 - get a wildmark ssl cert
 - add start/stop commands to pod-wetty/theia scripts
+- show in status bar if theia is running
 - have user login to portal, and store its display name and groups
-- haproxy 503 page should redirect to /
-- landing page:
-  - poll the services to display availability in real-time
 - maven/npm caches:
   - make fake /etc/hosts entry for nexus, directing to a local caching proxy
     only caches artifact files (not snapshots)
@@ -126,14 +98,16 @@ TODO
 - maintenance
   - kill containers (or just processes) using lots cpu/ram/processes/files for too long
   - archive containers on inactivity, with creation params next to archive
-    - the pod page shows it is archived, and provides button to restore.
-      it may be restored on a different node.
+    - the pod page shows the current user's archives, and provides button to restore.
+      it will be restored to a different node/number.
+      there is a limit to number of archives per user.
   - if stored externally, snapshots must be encrypted as may contain secrets.
   - only owner can restore
   - cleanup old snapshots
+  - kill theia on inactivity?
 - calls to api from a pod:
   - each pod gets a token, used to check call is made by the pod
-  - example calls: pod archive <timeout in days, max 30>, pod move
+  - example calls: pod archive <archive persistence in days, max 30>; pod move <node>
 
 IMPROVEMENTS
 ============

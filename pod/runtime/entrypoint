@@ -32,6 +32,27 @@ sed -i "s/^\(wheel:.*\)$/\1,$POD_USER/" /etc/group
 sed -i "s/^\(pair:.*\)$/\1,$POD_USER/" /etc/group
 echo $POD_USER >> /etc/at.allow
 
+# Save params to ~/.pod/
+params_dir=/home/$POD_USER/.pod
+mkdir $params_dir
+echo $POD_NUMBER > $params_dir/pod-number
+echo $POD_OPTIONS > $params_dir/options
+echo $POD_USER > $params_dir/user
+echo $POD_USER_DISPLAY_NAME > $params_dir/user-display-name
+echo $POD_HOMEDIR_URL > $params_dir/homedir-url
+echo $POD_PROJECTS_URLS > $params_dir/projects-urls
+
+cat <<EOF > "$params_dir/params.json"
+{
+  "pod_number": $POD_NUMBER,
+  "options": "$POD_OPTIONS",
+  "user": "$POD_USER",
+  "user_display_name": "$POD_USER_DISPLAY_NAME",
+  "homedir_url": "$POD_HOMEDIR_URL",
+  "projects_urls": "$POD_PROJECTS_URLS"
+}
+EOF
+
 # Run user init, eg clone projects repos
 su $POD_USER -c "/pod/runtime/user-init $POD_PROJECTS_URLS"
 
