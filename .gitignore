@@ -1,1 +1,2 @@
-
+.*.sw[op]
+/**/app/node_modules/

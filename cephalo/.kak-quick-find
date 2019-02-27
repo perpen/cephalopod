@@ -1,0 +1,2 @@
+#!/bin/bash
+find . -type f | egrep -v '/(\.git|node_modules|\.kak)' | sed 's#^\./##'

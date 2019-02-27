@@ -27,14 +27,14 @@ args() {
 }
 
 case $1 in
-tmux|pairing|secrets|repos)
+tmux|pairing|secrets|repos|wetty|theia)
     eval /pod/cli/pod-"$@"
     ;;
 die|args)
     eval "$@"
     ;;
 *)
-    echo "Usage: $0 (die|tmux|args|pairing|secrets|repos)" 1>&2
+    echo "Usage: $0 (die|tmux|args|pairing|secrets|repos|wetty|theia)" 1>&2
     exit 2
     ;;
 esac

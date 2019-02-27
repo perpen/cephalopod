@@ -11,9 +11,8 @@ function podPort(podNumber) {
   return POD_PORT_RANGE_START + podNumber * POD_PORT_RANGE_WIDTH;
 }
 
-//
+// We calculate the port number for the container using the pod number in the url
 function podDispatcher(req) {
-  // console.log(req);
   console.log(req.originalUrl);
   const matches = POD_PATH_RX.exec(req.originalUrl);
   if (!matches) return `http://localhost:${PORT}`; //FIXME
@@ -21,9 +20,7 @@ function podDispatcher(req) {
   const number = parseInt(matches[1]);
   const path = matches[2] || '';
   const port = podPort(number);
-  const url = `http://localhost:${port}${path}`;
-  console.log(`target url: ${url}`);
-  return url;
+  return `http://localhost:${port}${path}`;
 }
 
 app.use(POD_PATH_RX, proxy(podDispatcher, {
@@ -34,10 +31,10 @@ app.use(POD_PATH_RX, proxy(podDispatcher, {
       return matches[2];
     }
   }));
-app.get('/', (req, res) => res.send('Hello World!'))
+app.get('/', (req, res) => res.send('FIXME this is the portal page'))
+app.get('/status', (req, res) => res.send('FIXME pods stats'))
 app.use(function (req, res, next) {
-    res.status(404).send("Sorry can't find that!")
+    res.status(404).send('not found')
 })
 
-const port = PORT;
-app.listen(port, () => console.log(`Cephalo listening on port ${port}`))
+app.listen(PORT, () => console.log(`Cephalo listening on port ${PORT}`))

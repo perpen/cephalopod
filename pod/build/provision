@@ -37,56 +37,37 @@ install_yarn() {
     tar xfz yarn.tar.gz
     mv yarn-* yarn
     rm yarn.tar.gz
+    ln -sv /usr/local/lib/yarn/bin/yarn /usr/local/bin/
 }
 
 # dependencies: node version + yarn + wetty tar.gz + npm repo
 install_wetty() {
-    installed wetty && return
-    local node_version=8.11.4
-    cd /usr/local/src
+    [[ -d $WETTY_DIR ]] && return
+    cd /usr/local/tmp
     curl -o wetty.zip https://codeload.github.com/perpen/wetty/zip/master
     unzip -q wetty.zip
     rm wetty.zip
-    cd wetty-master
-    nvm_install $node_version
+    mv wetty-master $WETTY_DIR
+    cd $WETTY_DIR
+    nvm_install $WETTY_NODE_VERSION
     yarn
     yarn build
     yarn install --production --ignore-scripts --prefer-offline
-    local dir=$(pwd)
-    cat <<EOF > /usr/local/bin/pod-wetty
-#!/bin/bash
-set -e
-title="$1"
-source $NVM_DIR/nvm.sh
-cd $dir
-nvm exec $node_version node . --base / --host 0.0.0.0 --port 3000 --title "$title"
-EOF
-    chmod +x /usr/local/bin/pod-wetty
-    chmod -R a+rX /usr/local/{bin,src}
+    chmod -R a+rX $WETTY_DIR
 }
 
 # dependencies: node version + yarn + theia tar.gz + npm repo
 install_theia() {
-    installed theia && return
-    local node_version=8.11.4
+    [[ -d $THEIA_DIR ]] && return
     cd /usr/local/src
     curl -o theia.zip https://codeload.github.com/theia-ide/theia/zip/master
     unzip -q theia.zip
     rm theia.zip
-    cd theia-master
-    nvm_install $node_version
+    mv theia-master $THEIA_DIR
+    cd $THEIA_DIR
+    nvm_install $THEIA_NODE_VERSION
     yarn
-    local dir=$(pwd)/examples/browser
-    cat <<EOF > /usr/local/bin/pod-theia
-#!/bin/bash
-set -e
-source $NVM_DIR/nvm.sh
-export PATH=/usr/local/lib/yarn/bin:$PATH
-cd $dir
-nvm exec $node_version yarn run start --port 3001 "\$@"
-EOF
-    chmod +x /usr/local/bin/pod-theia
-    chmod -R a+rX /usr/local/{bin,src}
+    chmod -R a+rX $THEIA_DIR
 }
 
 # dependencies: yum repos
@@ -157,8 +138,7 @@ install_tmux() {
 
 ###############
 
-export PATH=/usr/local/lib/yarn/bin:$PATH
-export NVM_DIR=/usr/local/lib/nvm
+source $(dirname $0)/../config.sh
 
 mkdir -p /usr/local/src
 
