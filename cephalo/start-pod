@@ -4,6 +4,8 @@
 
 set -e
 
+source $(dirname $0)/../pod/config.sh
+
 POD_PORT_RANGE_START=3000
 POD_PORT_RANGE_WIDTH=10
 
@@ -18,8 +20,7 @@ shift 2
 
 pod_name="p$pod_number"
 ssh_port=$(( $POD_PORT_RANGE_START + $pod_number * $POD_PORT_RANGE_WIDTH ))
-wetty_port=$(( $ssh_port + 1 ))
-theia_port=$(( $ssh_port + 2 ))
+pod_port=$(( $ssh_port + 1 ))
 pod_dir=$(readlink -f $(dirname $0)/../pod)
 
 set -x
@@ -29,7 +30,6 @@ docker run --rm \
     --hostname "$pod_name" \
     -v $pod_dir:/pod \
     -p $ssh_port:22 \
-    -p $wetty_port:3000 \
-    -p $theia_port:3001 \
+    -p $pod_port:3000 \
     $image \
     $pod_number "$@"

@@ -4,9 +4,9 @@ HTTP entry point for the pod.
 - For theia we won't get a chance to run the user init in the terminal,
   so if init has not been run we present a page which asks for the decryption
   key, so we can decrypt the secret and run the init before starting theia.
-- FIXME use the same mechanism to start wetty on demand as well.
+- FIXME use same mechanism to start wetty on demand
 */
-const proxy = require('express-http-proxy');
+const proxy = require('http-proxy-middleware');
 const app = require('express')();
 const http = require('http');
 const request = require('request');
@@ -19,7 +19,8 @@ const bodyParser = require('body-parser');
 const PORT = 3000;
 const WETTY_PORT = 3001;
 const THEIA_PORT = 3002;
-const INTERFACE = '127.0.0.1';
+// const INTERFACE = '127.0.0.1';
+const INTERFACE = '0.0.0.0';
 
 function readConfig() {
     const dir = `${process.env.HOME}/.pod`;
@@ -196,13 +197,32 @@ function podStatus(req, res) {
 }
 
 app.use(bodyParser.json());
-app.use(/\/theia(\/.*)?$/, initTheia);
 app.post('/decrypt', decrypt);
-app.use('/theia', proxy(`http://localhost:${THEIA_PORT}`));
-app.use('/wetty', proxy(`http://localhost:${WETTY_PORT}`));
+
+app.use(/\/theia(\/.*)?$/, initTheia);
+app.use('/theia', proxy({
+  target: `http://localhost:${THEIA_PORT}`,
+  pathRewrite: {'^/theia' : '/'},
+  cookiePathRewrite: {
+    '/': '/theia',
+  },
+  logLevel: 'debug'
+}));
+
+app.get('/wetty', function(req, res) {
+    res.redirect('/wetty/');
+});
+app.use('/wetty/', proxy({
+  target: `http://localhost:${WETTY_PORT}`,
+  pathRewrite: {'^/wetty/' : '/'},
+  cookiePathRewrite: {
+    '/': '/wetty',
+  },
+  logLevel: 'debug'
+}));
 app.get('/status', podStatus);
 app.use(function (req, res, next) {
     res.status(404).send('not found');
 })
 
-app.listen(PORT, () => console.log(`Pod app listening on port ${PORT}`));
+app.listen(PORT, INTERFACE, () => console.log(`Pod app listening on port ${PORT}`));

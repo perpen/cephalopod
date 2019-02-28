@@ -1,36 +1,43 @@
 #!/bin/bash
 set -e
 
-pid=/tmp/theia.pid
+_pid() {
+    pgrep -fx "node.*--port $THEIA_PORT .*" || true
+}
 
 start() {
-    local title="$1"
-    [[ $# = 1 ]] || usage "TITLE"
-    source $(dirname $0)/../config.sh
+    local pid="$(_pid)"
+    [[ -z $pid ]] || {
+        echo "already started" 1>&2
+        exit 1
+    }
     source $NVM_DIR/nvm.sh
     cd $THEIA_DIR/examples/browser
-    nvm exec $node_version yarn run start --port 3001 "\$@" &
-    echo $$ > $pid
+    nvm exec $THEIA_NODE_VERSION yarn run start --port $THEIA_PORT "\$@" &
 }
 
 stop() {
-    [[ -r $pid ]] || {
-        echo "$0: $pid not found" 1>&2
+    local pid="$(_pid)"
+    [[ -z $pid ]] && {
+        echo "already stopped" 1>&2
         exit 1
     }
-    kill $(< $pid)
-    rm $pid
+    kill $pid
 }
 
 status() {
-    if [[ -f $pid && pgrep -F $pid &> /dev/null ]]; then
-        echo running
-        exit 0
-    else
+    if [[ -z "$(_pid)" ]]; then
         echo stopped
         exit 1
+    else
+        echo running
+        exit 0
     fi
 }
+
+########################
+
+source $(dirname $0)/../config.sh
 
 case "$1" in
 start|stop|status)

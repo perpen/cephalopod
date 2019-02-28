@@ -28,7 +28,10 @@ args() {
 
 case $1 in
 tmux|pairing|secrets|repos|wetty|theia)
-    eval /pod/cli/pod-"$@"
+    cmd=$1
+    shift
+    set -x
+    eval /pod/cli/pod-$cmd "$@"
     ;;
 die|args)
     eval "$@"

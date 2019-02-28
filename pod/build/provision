@@ -12,9 +12,9 @@ installed() {
 
 # dependencies: none
 install_nvm() {
-    [[ -d $NVM_DIR ]] || {
-        mkdir $NVM_DIR
-        /pod/build/nvm-install.sh
+    [[ -f $NVM_DIR/nvm.sh ]] || {
+        mkdir -p $NVM_DIR
+        NVM_DIR=$NVM_DIR /pod/build/nvm-install.sh
     }
     set +x
     source $NVM_DIR/nvm.sh
@@ -59,7 +59,7 @@ install_wetty() {
 # dependencies: node version + yarn + theia tar.gz + npm repo
 install_theia() {
     [[ -d $THEIA_DIR ]] && return
-    cd /usr/local/src
+    cd /usr/local/tmp
     curl -o theia.zip https://codeload.github.com/theia-ide/theia/zip/master
     unzip -q theia.zip
     rm theia.zip
@@ -84,6 +84,9 @@ install_packages() {
 install_pod() {
     [[ -L /bin/pod ]] && return
     
+    cd /pod/runtime/app
+    yarn
+    
     # pair user
     adduser -s /pod/cli/pod-pairing pair
     ( echo "pair:pair" | chpasswd )
@@ -104,8 +107,8 @@ install_git() {
     yum remove -y git || true
     yum install -y $packages
     curl -Lo- https://www.kernel.org/pub/software/scm/git/git-2.20.1.tar.gz \
-        | tar xfz - -C/usr/local/src
-    cd /usr/local/src/git-*
+        | tar xfz - -C/usr/local/tmp
+    cd /usr/local/tmp/git-*
     make prefix=/usr/local all
     make prefix=/usr/local install
     cd ..
@@ -121,7 +124,7 @@ install_tmux() {
     local packages="libevent-devel ncurses-devel"
     yum remove -y tmux || true
     yum install -y $packages
-    cd /usr/local/src
+    cd /usr/local/tmp
     curl -L -o tmux.zip https://github.com/tmux/tmux/archive/master.zip
     unzip -q tmux.zip
     rm tmux.zip
@@ -140,7 +143,7 @@ install_tmux() {
 
 source $(dirname $0)/../config.sh
 
-mkdir -p /usr/local/src
+mkdir -p /usr/local/tmp
 
 if [[ -z "$1" ]]; then
     install_packages

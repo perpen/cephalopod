@@ -6,6 +6,7 @@ set -ex
 [[ $# -lt 3 ]] && {
     cat <<EOF 1>&2
 Usage: $0 POD_NUMBER OPTIONS USER USER_DISPLAY_NAME GIT_URL_HOMEDIR [GIT_URL ...]
+    OPTIONS For now use 'none'
 EOF
     exit 2
 }
@@ -21,16 +22,18 @@ export POD_PROJECTS_URLS="$*"
 # Setup user
 # Centos doesn't allow usernames like \d+, so we create a temp user which we
 # then rename.
-tmp_user=x$POD_USER
-adduser -s /bin/bash -g pair $tmp_user
-echo "$tmp_user:pass" | chpasswd
-for file in /etc/{passwd,shadow,shadow-,group,gshadow}; do
-    sed -i "s/$tmp_user/$POD_USER/g" $file
-done
-mv /home/{$tmp_user,$POD_USER}
-sed -i "s/^\(wheel:.*\)$/\1,$POD_USER/" /etc/group
-sed -i "s/^\(pair:.*\)$/\1,$POD_USER/" /etc/group
-echo $POD_USER >> /etc/at.allow
+[[ -d /home/$POD_USER ]] || {
+    tmp_user=x$POD_USER
+    adduser -s /bin/bash -g pair $tmp_user
+    echo "$tmp_user:pass" | chpasswd
+    for file in /etc/{passwd,shadow,shadow-,group,gshadow}; do
+        sed -i "s/$tmp_user/$POD_USER/g" $file
+    done
+    mv /home/{$tmp_user,$POD_USER}
+    sed -i "s/^\(wheel:.*\)$/\1,$POD_USER/" /etc/group
+    sed -i "s/^\(pair:.*\)$/\1,$POD_USER/" /etc/group
+    echo $POD_USER >> /etc/at.allow
+}
 
 # Save params to environment and ~/.pod/params.json
 # FIXME do i steel need the json?
@@ -54,28 +57,28 @@ cat <<EOF > "$params_dir/params.json"
 EOF
 
 # Run user init, eg clone projects repos
-su $POD_USER -c "/pod/runtime/user-init $POD_PROJECTS_URLS"
+# su $POD_USER -c "/pod/runtime/user-init $POD_PROJECTS_URLS"
 
-# If this file appears, we stop the container
+# If this deadly file appears, we stop the container
 set +x
 while :; do
     [[ -f /tmp/pod-must-die ]] && {
-        pkill sshd || true
-        pkill node || true
+        kill 1 || true
     }
     sleep 5
 done &
 set -x
 
 # Start UIs
-# atm POD_OPTIONS is a comma-separated list of UI names, eg. "wetty,theia"
-for ui in $(echo $POD_OPTIONS | tr , '\n' | sort | uniq); do
-    case $ui in
-    wetty) pod-wetty "pod $POD_NUMBER" & ;;
-    theia) su $POD_USER -c pod-theia & ;;
-    *) echo "$0: Ignoring unknown option: $ui" 1>&2 ;;
-    esac
-done
+pod wetty start "pod $POD_NUMBER"
+
+# Start pod app
+source $(dirname $0)/../config.sh
+set +x
+source $NVM_DIR/nvm.sh
+nvm use $POD_NODE_VERSION
+set -x
+node /pod/runtime/app/pod.js &
 
 ssh-keygen -A
 /usr/sbin/sshd -D
