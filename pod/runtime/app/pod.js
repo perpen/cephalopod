@@ -19,13 +19,11 @@ const bodyParser = require('body-parser');
 const PORT = 3000;
 const WETTY_PORT = 3001;
 const THEIA_PORT = 3002;
-// const INTERFACE = '127.0.0.1';
 const INTERFACE = '0.0.0.0';
-
-function readConfig() {
+const CONFIG = (() => {
     const dir = `${process.env.HOME}/.pod`;
     return JSON.parse(fs.readFileSync(`${dir}/params.json`));
-}
+})();
 
 function decryptionNeeded() {
     // FIXME cache, this is called on each theia request
@@ -37,7 +35,6 @@ function decryptionNeeded() {
 }
 
 function startTheiaIfNotRunning() {
-    const config = readConfig();
     const theiaPath = `http://127.0.0.1:${THEIA_PORT}`; //FIXME
     request.head(theiaPath, (error, response, body) => {
         if (!response) {
@@ -56,20 +53,19 @@ function initTheia(req, res, next) {
     startTheiaIfNotRunning();
 
     console.log('decryptionNeeded');
-    const config = readConfig();
-    const theiaPath = `/pod/${config.pod_number}/theia`; //FIXME
-    const decryptPath = `/pod/${config.pod_number}/decrypt`; //FIXME
+    const theiaPath = `/pod/${CONFIG.pod_number}/theia`; //FIXME
+    const decryptPath = `/pod/${CONFIG.pod_number}/decrypt`; //FIXME
 
     res.setHeader('Content-type', 'text/html');
     const html = `
       <html>
         <head>
-          <title>${config.pod_number}@node-a</title>
+          <title>${CONFIG.pod_number}@node-a</title>
         </head>
         <body>
           <div>
-            <h2>pod ${config.pod_number}@node-a</h2>
-            Owner: ${config.user_display_name} (${config.user})
+            <h2>pod ${CONFIG.pod_number}@node-a</h2>
+            Owner: ${CONFIG.user_display_name} (${CONFIG.user})
             <br>
             <br>
             Theia <span id="theiaStatus">...</span>
@@ -153,7 +149,6 @@ function decrypt(req, res) {
 
     // decrypt!
     //fs.mkdir(`${process.env.HOME}/.pod/secrets`);
-    const config = readConfig();
     const homedir = `${process.env.HOME}`;
 
     // We pipe the key from this process to prevent it from appearing in ps output
@@ -182,12 +177,11 @@ function podStatus(req, res) {
     console.log(`target host: ${req.headers['host']}`);
     if (req.url != '/status') return false;
 
-    const config = readConfig();
     const ps = proc.spawnSync('ps', ['-ef']);
     config['ps'] = ps.stderr.toString() + '\n' + ps.stdout.toString();
     const top = proc.spawnSync('top', ['-bn1']);
     config['top'] = top.stderr.toString() + '\n' + top.stdout.toString();
-    const pairing = proc.spawnSync('su', ['-', config.user, '-c', `pod pairing status`]);
+    const pairing = proc.spawnSync('su', ['-', CONFIG.user, '-c', `pod pairing status`]);
     config['pairing'] = pairing.stdout.toString();
     console.log(config);
 
@@ -196,9 +190,7 @@ function podStatus(req, res) {
     return true;
 }
 
-app.use(bodyParser.json());
-app.post('/decrypt', decrypt);
-
+// theia
 app.use(/\/theia(\/.*)?$/, initTheia);
 app.use('/theia', proxy({
   target: `http://localhost:${THEIA_PORT}`,
@@ -209,10 +201,13 @@ app.use('/theia', proxy({
   logLevel: 'debug'
 }));
 
-app.get('/wetty', function(req, res) {
-    res.redirect('/wetty/');
+// wetty
+// because my wetty fork uses relative paths for resources, we want the trailing slash.
+app.get('/wetty', function(req, res, next) {
+  if (req.originalUrl.slice(-1) == '/') return next();
+  res.redirect(`/pod/${CONFIG.pod_number}/wetty/`);
 });
-app.use('/wetty/', proxy({
+app.use('/wetty', proxy({
   target: `http://localhost:${WETTY_PORT}`,
   pathRewrite: {'^/wetty/' : '/'},
   cookiePathRewrite: {
@@ -220,7 +215,12 @@ app.use('/wetty/', proxy({
   },
   logLevel: 'debug'
 }));
+
+// rest
+app.use(bodyParser.json());
 app.get('/status', podStatus);
+app.post('/decrypt', decrypt);
+
 app.use(function (req, res, next) {
     res.status(404).send('not found');
 })
