@@ -1,4 +1,5 @@
 var proxy = require('http-proxy-middleware');
+var http = require('http');
 var app = require('express')();
 
 const PORT = 8080;
@@ -18,8 +19,10 @@ function podBasePath(url) {
   return `/pod/${matches[2]}`;
 }
 
-app.use('/pod', proxy({
+const theProxy = proxy({
   target: 'dummy',
+
+  ws: true,
 
   pathRewrite: (path, req) => {
     console.log(`path: ${path}`);
@@ -31,7 +34,7 @@ app.use('/pod', proxy({
   // We calculate the container port number from the pod number in the url
   router: req => {
     const matches = POD_PATH_RX.exec(req.url);
-    if (!matches) return `http://localhost:${PORT}`; // go home
+    if (!matches) return `http://127.0.0.1:${PORT}`; // go home
 
     const number = parseInt(matches[2]);
     const path = matches[3] || '';
@@ -55,12 +58,22 @@ app.use('/pod', proxy({
       proxyRes.headers['set-cookie'] = cookies;
     }
     return res;
-  },
-}));
+  }
+});
+
+app.use('/pod', theProxy);
 app.get('/', (req, res) => res.send('FIXME this is the portal page'))
 app.get('/status', (req, res) => res.send('FIXME pods stats'))
 app.use(function (req, res, next) {
     res.status(404).send('not found')
 })
 
-app.listen(PORT, INTERFACE, () => console.log(`Cephalo listening on port ${PORT}`))
+// app.listen(PORT, INTERFACE, () => console.log(`cephalo listening on port ${PORT}`));
+
+var server = http.createServer();
+false && server.on('upgrade', (req) => {
+  console.log("upgrade!");
+  theProxy.upgrade(req);
+});
+server.on('request', app);
+server.listen(PORT, INTERFACE, () => console.log(`cephalo listening on port ${PORT}`));

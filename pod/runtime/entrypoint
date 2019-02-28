@@ -19,33 +19,31 @@ export POD_HOMEDIR_URL="$5"
 shift 5
 export POD_PROJECTS_URLS="$*"
 
-# Setup user
-# Centos doesn't allow usernames like \d+, so we create a temp user which we
-# then rename.
-[[ -d /home/$POD_USER ]] || {
-    tmp_user=x$POD_USER
-    adduser -s /bin/bash -g pair $tmp_user
-    echo "$tmp_user:pass" | chpasswd
-    for file in /etc/{passwd,shadow,shadow-,group,gshadow}; do
-        sed -i "s/$tmp_user/$POD_USER/g" $file
-    done
-    mv /home/{$tmp_user,$POD_USER}
-    sed -i "s/^\(wheel:.*\)$/\1,$POD_USER/" /etc/group
-    sed -i "s/^\(pair:.*\)$/\1,$POD_USER/" /etc/group
-    echo $POD_USER >> /etc/at.allow
+source $(dirname $0)/../config.sh
+
+create_user() {
+    # Centos doesn't allow usernames like \d+, so we create a temp user which we
+    # then rename.
+    [[ -d /home/$POD_USER ]] || {
+        local tmp_user=x$POD_USER
+        adduser -s /bin/bash -g pair $tmp_user
+        echo "$tmp_user:pass" | chpasswd
+        for file in /etc/{passwd,shadow,shadow-,group,gshadow}; do
+            sed -i "s/$tmp_user/$POD_USER/g" $file
+        done
+        mv /home/{$tmp_user,$POD_USER}
+        sed -i "s/^\(wheel:.*\)$/\1,$POD_USER/" /etc/group
+        sed -i "s/^\(pair:.*\)$/\1,$POD_USER/" /etc/group
+        echo $POD_USER >> /etc/at.allow
+    }
 }
 
-# Save params to environment and ~/.pod/params.json
-# FIXME do i steel need the json?
-params_dir=/home/$POD_USER/.pod
-mkdir $params_dir
-echo $POD_NUMBER > $params_dir/pod-number
-echo $POD_OPTIONS > $params_dir/options
-echo $POD_USER > $params_dir/user
-echo $POD_USER_DISPLAY_NAME > $params_dir/user-display-name
-echo $POD_HOMEDIR_URL > $params_dir/homedir-url
-echo $POD_PROJECTS_URLS > $params_dir/projects-urls
-cat <<EOF > "$params_dir/params.json"
+store_pod_params() {
+    # Save params to environment and ~/.pod/params.json
+    # FIXME do i still need the json?
+    local params_dir=/home/$POD_USER/.pod
+    mkdir $params_dir
+    cat <<EOF > "$params_dir/params.json"
 {
   "pod_number": $POD_NUMBER,
   "options": "$POD_OPTIONS",
@@ -55,30 +53,39 @@ cat <<EOF > "$params_dir/params.json"
   "projects_urls": "$POD_PROJECTS_URLS"
 }
 EOF
+    chown -R $POD_USER:pair $params_dir
+}
 
-# Run user init, eg clone projects repos
-# su $POD_USER -c "/pod/runtime/user-init $POD_PROJECTS_URLS"
+watch_deadly_file() {
+    set +x
+    while :; do
+        [[ -f /tmp/pod-must-die ]] && {
+            kill 1 || true
+        }
+        sleep 10
+    done &
+    set -x
+}
 
-# If this deadly file appears, we stop the container
-set +x
-while :; do
-    [[ -f /tmp/pod-must-die ]] && {
-        kill 1 || true
-    }
-    sleep 5
-done &
-set -x
+start_apps() {
+    # Start UIs
+    pod wetty start "pod $POD_NUMBER"
 
-# Start UIs
-pod wetty start "pod $POD_NUMBER"
+    # Start pod app
+    set +x
+    source $NVM_DIR/nvm.sh
+    nvm use $POD_NODE_VERSION
+    set -x
+    su $POD_USER -c "node /pod/runtime/app/pod.js" &
+}
 
-# Start pod app
-source $(dirname $0)/../config.sh
-set +x
-source $NVM_DIR/nvm.sh
-nvm use $POD_NODE_VERSION
-set -x
-node /pod/runtime/app/pod.js &
+##########################
+
+create_user
+store_pod_params
+su $POD_USER -c "/pod/runtime/user-init $POD_HOMEDIR_URL $POD_PROJECTS_URLS"
+watch_deadly_file
+start_apps
 
 ssh-keygen -A
 /usr/sbin/sshd -D

@@ -11,7 +11,7 @@ ssh_url=git@github.com:perpen/pod-linux-home.git
 cd
 
 # Clone user config into homedir
-rm -f .bashrc
+rm -f .* 2> /dev/null || true
 git init
 git remote add origin $https_url
 git fetch origin

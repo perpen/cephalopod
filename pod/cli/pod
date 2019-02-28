@@ -30,7 +30,6 @@ case $1 in
 tmux|pairing|secrets|repos|wetty|theia)
     cmd=$1
     shift
-    set -x
     eval /pod/cli/pod-$cmd "$@"
     ;;
 die|args)

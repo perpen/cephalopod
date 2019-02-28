@@ -39,6 +39,8 @@ function startTheiaIfNotRunning() {
     request.head(theiaPath, (error, response, body) => {
         if (!response) {
             console.log("STARTING THEIA");
+            proc.spawn('pod', ['theia', 'start']);
+            console.log("STARTING THEIA DONE");
         }
     });
 }
@@ -83,6 +85,7 @@ function initTheia(req, res, next) {
               const fieldElt = document.getElementById('decryptionKey');
               const errorElt = document.getElementById('decryptionError');
               const theiaStatusElt = document.getElementById('theiaStatus');
+              var decrypted = false;
 
               const push = function() {
                 fieldElt.disabled = true;
@@ -97,6 +100,7 @@ function initTheia(req, res, next) {
                     console.log("res.ok:", res.ok);
                     if (res.ok) {
                       decryptionElt.innerHTML = "";
+                      decrypted = true;
                     } else {
                       errorElt.innerHTML = "decryption failed";
                       fieldElt.disabled = false;
@@ -120,7 +124,8 @@ function initTheia(req, res, next) {
                   console.log("res.ok:", res.ok);
                   if (res.ok) {
                     theiaStatus.innerHTML = "started";
-                    location.reload(true);
+                    // Don't reload until secrets are decrypted
+                    if (decrypted) location.reload(true);
                   } else {
                     theiaStatus.innerHTML = "starting...";
                   }
@@ -191,14 +196,19 @@ function podStatus(req, res) {
 }
 
 // theia
-app.use(/\/theia(\/.*)?$/, initTheia);
+app.use('/theia', initTheia);
 app.use('/theia', proxy({
   target: `http://localhost:${THEIA_PORT}`,
   pathRewrite: {'^/theia' : '/'},
   cookiePathRewrite: {
     '/': '/theia',
   },
-  logLevel: 'debug'
+  logLevel: 'debug',
+  ws: true,
+  onUpgrade: (x) => {
+    console.log(x);
+    proxy.upgrade();
+  }
 }));
 
 // wetty
@@ -207,14 +217,16 @@ app.get('/wetty', function(req, res, next) {
   if (req.originalUrl.slice(-1) == '/') return next();
   res.redirect(`/pod/${CONFIG.pod_number}/wetty/`);
 });
-app.use('/wetty', proxy({
+const theProxy = proxy({
   target: `http://localhost:${WETTY_PORT}`,
   pathRewrite: {'^/wetty/' : '/'},
   cookiePathRewrite: {
     '/': '/wetty',
   },
+  ws: true,
   logLevel: 'debug'
-}));
+});
+app.use('/wetty', theProxy);
 
 // rest
 app.use(bodyParser.json());
@@ -225,4 +237,12 @@ app.use(function (req, res, next) {
     res.status(404).send('not found');
 })
 
-app.listen(PORT, INTERFACE, () => console.log(`Pod app listening on port ${PORT}`));
+// app.listen(PORT, INTERFACE, () => console.log(`Pod app listening on port ${PORT}`));
+
+var server = http.createServer();
+true && server.on('upgrade', () => {
+  console.log("upgrade!");
+  theProxy.upgrade();
+});
+server.on('request', app);
+server.listen(PORT, INTERFACE, () => console.log(`pod listening on port ${PORT}`));

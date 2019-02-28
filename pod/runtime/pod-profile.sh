@@ -28,14 +28,15 @@
     # Run on each login
     # If we aren't under tmux, attach to existing session or create a new one
     [[ -z $TMUX ]] && {
-        if tmux has -t 0 &> /dev/null; then
+        pod_tmux_session=pod
+        if tmux has -t $pod_tmux_session &> /dev/null; then
             socket=$(echo $TMUX | cut -d, -f1)
             # tmux refuses to attach if perms too open, and we are messing with
             # them from ./pod-pairing
             chmod o-rwx $socket
-        	tmux attach -d -t 0
+        	tmux attach -d -t $pod_tmux_session
         else
-        	tmux new-session -s pod
+        	tmux new-session -s $pod_tmux_session
         fi
     }
 }

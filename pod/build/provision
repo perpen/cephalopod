@@ -67,7 +67,8 @@ install_theia() {
     cd $THEIA_DIR
     nvm_install $THEIA_NODE_VERSION
     yarn
-    chmod -R a+rX $THEIA_DIR
+    # FIXME why needs write??
+    chmod -R a+rwX $THEIA_DIR
 }
 
 # dependencies: yum repos
