@@ -202,24 +202,19 @@ function podStatus(req, res) {
 
 // theia
 app.use('/theia', initTheia);
-app.use('/theia', proxy({
-  target: `http://localhost:${THEIA_PORT}`,
+const theiaProxy = proxy('/theia', {
+  target: `http://127.0.0.1:${THEIA_PORT}`,
   pathRewrite: {'^/theia/' : '/'},
-  cookiePathRewrite: {
-    '/': '/theia/',
-  },
   logLevel: 'debug',
   ws: true,
-}));
-//app.use('/theia', proxy({
-//  target: `http://localhost:${THEIA_PORT}`,
-//  pathRewrite: {'^/theia/' : '/'},
-//  cookiePathRewrite: {
-//    '/': '/theia/',
-//  },
-//  logLevel: 'debug',
-//  ws: true,
-//}));
+  onError: function onError(err, req, res) {
+    console.log('theiaProxy error', err);
+    res.writeHead(500, { 'Content-Type': 'text/plain' })
+    res.end('Something went wrong.')
+  },
+});
+
+app.use(theiaProxy);
 
 // wetty
 // because my wetty fork uses relative paths for resources, we want the trailing slash.
@@ -228,7 +223,7 @@ app.get('/wetty', function(req, res, next) {
   res.redirect(`/pod/${CONFIG.pod_number}/wetty/`);
 });
 const theProxy = proxy({
-  target: `http://localhost:${WETTY_PORT}`,
+  target: `http://127.0.0.1:${WETTY_PORT}`,
   pathRewrite: {'^/wetty/' : '/'},
   cookiePathRewrite: {
     '/': '/wetty',
@@ -252,6 +247,6 @@ app.use(function (req, res, next) {
 
 var server = http.createServer();
 server.on('request', app);
-// server.on('upgrade', theProxy.upgrade);
+server.on('upgrade', theiaProxy.upgrade);
 server.on('error', (e) => console.log(`error: ${e}`));
 server.listen(PORT, INTERFACE, () => console.log(`pod listening on port ${INTERFACE}:${PORT}`));

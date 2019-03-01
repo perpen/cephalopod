@@ -14,10 +14,11 @@ start() {
     }
     source $NVM_DIR/nvm.sh
     cd $WETTY_DIR
+    echo "logging to /var/tmp/wetty.out"
     #WETTY_PORT=3000 # XXXXXXXXXXXXXXXXXXX
     nvm exec $WETTY_NODE_VERSION node . \
         --base / --host 0.0.0.0 --port $WETTY_PORT --title "$title" \
-        2>&1 | tee /var/tmp/wetty.out &
+        >&1 > /var/tmp/wetty.out &
 }
 
 stop() {
