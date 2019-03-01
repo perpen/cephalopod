@@ -35,7 +35,7 @@ function decryptionNeeded() {
 }
 
 function startTheiaIfNotRunning() {
-    const theiaPath = `http://127.0.0.1:${THEIA_PORT}`; //FIXME
+    const theiaPath = `http://127.0.0.1:${THEIA_PORT}/bundle.js`; //FIXME
     request.head(theiaPath, (error, response, body) => {
         if (!response) {
             console.log("STARTING THEIA");
@@ -151,15 +151,14 @@ function decrypt(req, res) {
     }
 
     const decryptionKey = req.body.key;
-
-    // decrypt!
-    //fs.mkdir(`${process.env.HOME}/.pod/secrets`);
     const homedir = `${process.env.HOME}`;
 
     // We pipe the key from this process to prevent it from appearing in ps output
     const sink = proc.spawn('bash',
-      ['-c', `gpg -d --batch --passphrase-fd 0 --cipher-algo aes256 ${homedir}/.pod-secrets.gpg | tar xfz - -C ${homedir}/.pod`],
-      {stdio: ['pipe', process.stdout, process.stderr]});
+      ['-c', `gpg -d --batch --passphrase-fd 0 --cipher-algo aes256 ${homedir}/.pod-secrets.gpg | tar xfz - -C ${homedir}`],
+      {stdio: 'pipe'});
+      // {stdio: ['pipe', process.stdout, process.stderr]});
+
     sink.on('close', (code) => {
       console.log(`decrypting exit code ${code}`);
       if (code == 0) {
@@ -168,12 +167,18 @@ function decrypt(req, res) {
         res.status(400).end();
       }
     });
+    sink.stdout.on('data', (data) => {
+      console.log(`stdout: ${data}`);
+    });
+    sink.stderr.on('data', (data) => {
+      console.log(`stderr: ${data}`);
+    });
     sink.on('error', (err) => {
       console.log('error decrypting secrets', err);
       res.status(500).end();
     });
 
-    sink.stdin.write(decryptionKey);
+    sink.stdin.write(decryptionKey + '\n');
     sink.stdin.end();
 }
 
@@ -199,17 +204,22 @@ function podStatus(req, res) {
 app.use('/theia', initTheia);
 app.use('/theia', proxy({
   target: `http://localhost:${THEIA_PORT}`,
-  pathRewrite: {'^/theia' : '/'},
+  pathRewrite: {'^/theia/' : '/'},
   cookiePathRewrite: {
-    '/': '/theia',
+    '/': '/theia/',
   },
   logLevel: 'debug',
   ws: true,
-  onUpgrade: (x) => {
-    console.log(x);
-    proxy.upgrade();
-  }
 }));
+//app.use('/theia', proxy({
+//  target: `http://localhost:${THEIA_PORT}`,
+//  pathRewrite: {'^/theia/' : '/'},
+//  cookiePathRewrite: {
+//    '/': '/theia/',
+//  },
+//  logLevel: 'debug',
+//  ws: true,
+//}));
 
 // wetty
 // because my wetty fork uses relative paths for resources, we want the trailing slash.
@@ -224,6 +234,7 @@ const theProxy = proxy({
     '/': '/wetty',
   },
   ws: true,
+  // changeOrigin: true,
   logLevel: 'debug'
 });
 app.use('/wetty', theProxy);
@@ -240,9 +251,7 @@ app.use(function (req, res, next) {
 // app.listen(PORT, INTERFACE, () => console.log(`Pod app listening on port ${PORT}`));
 
 var server = http.createServer();
-true && server.on('upgrade', () => {
-  console.log("upgrade!");
-  theProxy.upgrade();
-});
 server.on('request', app);
-server.listen(PORT, INTERFACE, () => console.log(`pod listening on port ${PORT}`));
+// server.on('upgrade', theProxy.upgrade);
+server.on('error', (e) => console.log(`error: ${e}`));
+server.listen(PORT, INTERFACE, () => console.log(`pod listening on port ${INTERFACE}:${PORT}`));

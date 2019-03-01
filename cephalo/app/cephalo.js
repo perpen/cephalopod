@@ -23,6 +23,7 @@ const theProxy = proxy({
   target: 'dummy',
 
   ws: true,
+  // changeOrigin: true,
 
   pathRewrite: (path, req) => {
     console.log(`path: ${path}`);
@@ -71,9 +72,7 @@ app.use(function (req, res, next) {
 // app.listen(PORT, INTERFACE, () => console.log(`cephalo listening on port ${PORT}`));
 
 var server = http.createServer();
-false && server.on('upgrade', (req) => {
-  console.log("upgrade!");
-  theProxy.upgrade(req);
-});
+
 server.on('request', app);
-server.listen(PORT, INTERFACE, () => console.log(`cephalo listening on port ${PORT}`));
+server.on('error', (e) => console.log(`error: ${e}`));
+server.listen(PORT, INTERFACE, () => console.log(`cephalo listening on port ${INTERFACE}:${PORT}`));

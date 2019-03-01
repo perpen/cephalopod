@@ -19,7 +19,7 @@ pod_number="$2"
 shift 2
 
 pod_name="p$pod_number"
-ssh_port=$(( $POD_PORT_RANGE_START + $pod_number * $POD_PORT_RANGE_WIDTH ))
+ssh_port=$(( $POD_PORT_RANGE_START + $pod_number * $POD_PORT_RANGE_WIDTH - 1))
 pod_port=$(( $ssh_port + 1 ))
 pod_dir=$(readlink -f $(dirname $0)/../pod)
 
