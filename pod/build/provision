@@ -110,7 +110,7 @@ install_git() {
     curl -Lo- https://www.kernel.org/pub/software/scm/git/git-2.20.1.tar.gz \
         | tar xfz - -C/usr/local/tmp
     cd /usr/local/tmp/git-*
-    make prefix=/usr/local all
+    make -j$CONCURRENCY_LEVEL prefix=/usr/local all
     make prefix=/usr/local install
     cd ..
     rm -rf git-*
@@ -132,7 +132,7 @@ install_tmux() {
     cd tmux-*
     sh autogen.sh
     ./configure
-    make
+    make -j$CONCURRENCY_LEVEL
     make install
     cd ..
     rm -rf tmuxd-*
@@ -143,6 +143,7 @@ install_tmux() {
 ###############
 
 source $(dirname $0)/../config.sh
+CONCURRENCY_LEVEL=$(awk '/^processor\t:/ {n=$3} END {print n}' /proc/cpuinfo)
 
 mkdir -p /usr/local/tmp
 

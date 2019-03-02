@@ -35,7 +35,7 @@ function decryptionNeeded() {
 }
 
 function startTheiaIfNotRunning() {
-    const theiaPath = `http://127.0.0.1:${THEIA_PORT}/bundle.js`; //FIXME
+    const theiaPath = `http://127.0.0.1:${THEIA_PORT}`; //FIXME
     request.head(theiaPath, (error, response, body) => {
         if (!response) {
             console.log("STARTING THEIA");
@@ -55,7 +55,7 @@ function initTheia(req, res, next) {
     startTheiaIfNotRunning();
 
     console.log('decryptionNeeded');
-    const theiaPath = `/pod/${CONFIG.pod_number}/theia`; //FIXME
+    const theiaPath = `/pod/${CONFIG.pod_number}/theia/bundle.js`; //FIXME
     const decryptPath = `/pod/${CONFIG.pod_number}/decrypt`; //FIXME
 
     res.setHeader('Content-type', 'text/html');
@@ -114,7 +114,7 @@ function initTheia(req, res, next) {
 
               const theiaOptions = {
                 headers : { "content-type" : "application/json; charset=UTF-8"},
-                method : "HEAD",
+                method : "GET",
               };
 
               const theiaMonitor = function() {
@@ -141,7 +141,6 @@ function initTheia(req, res, next) {
 
 }
 
-// Process posted params
 function decrypt(req, res) {
     console.log('decrypt');
     // Maybe we decrypted from somewhere else, check again
@@ -188,20 +187,22 @@ function podStatus(req, res) {
     if (req.url != '/status') return false;
 
     const ps = proc.spawnSync('ps', ['-ef']);
-    config['ps'] = ps.stderr.toString() + '\n' + ps.stdout.toString();
+    CONFIG['ps'] = ps.stderr.toString() + '\n' + ps.stdout.toString();
     const top = proc.spawnSync('top', ['-bn1']);
-    config['top'] = top.stderr.toString() + '\n' + top.stdout.toString();
+    CONFIG['top'] = top.stderr.toString() + '\n' + top.stdout.toString();
     const pairing = proc.spawnSync('su', ['-', CONFIG.user, '-c', `pod pairing status`]);
-    config['pairing'] = pairing.stdout.toString();
-    console.log(config);
+    CONFIG['pairing'] = pairing.stdout.toString();
+    console.log(CONFIG);
 
-    res.headers['Content-type'] = 'application/json';
-    res.end(JSON.stringify(config));
+    // res.headers['Content-type'] = 'application/json';
+    res.setHeader('Content-type', 'application/json');
+    res.end(JSON.stringify(CONFIG));
     return true;
 }
 
-// theia
-app.use('/theia', initTheia);
+//////////////////////////////// theia
+
+// app.use('/theia', initTheia);
 const theiaProxy = proxy('/theia', {
   target: `http://127.0.0.1:${THEIA_PORT}`,
   pathRewrite: {'^/theia/' : '/'},
@@ -213,28 +214,27 @@ const theiaProxy = proxy('/theia', {
     res.end('Something went wrong.')
   },
 });
-
 app.use(theiaProxy);
 
-// wetty
+//////////////////////////////// wetty
+
 // because my wetty fork uses relative paths for resources, we want the trailing slash.
 app.get('/wetty', function(req, res, next) {
   if (req.originalUrl.slice(-1) == '/') return next();
   res.redirect(`/pod/${CONFIG.pod_number}/wetty/`);
 });
-const theProxy = proxy({
+app.use('/wetty', proxy({
   target: `http://127.0.0.1:${WETTY_PORT}`,
   pathRewrite: {'^/wetty/' : '/'},
   cookiePathRewrite: {
     '/': '/wetty',
   },
   ws: true,
-  // changeOrigin: true,
   logLevel: 'debug'
-});
-app.use('/wetty', theProxy);
+}));
 
-// rest
+//////////////////////////////// rest
+
 app.use(bodyParser.json());
 app.get('/status', podStatus);
 app.post('/decrypt', decrypt);
@@ -242,8 +242,6 @@ app.post('/decrypt', decrypt);
 app.use(function (req, res, next) {
     res.status(404).send('not found');
 })
-
-// app.listen(PORT, INTERFACE, () => console.log(`Pod app listening on port ${PORT}`));
 
 var server = http.createServer();
 server.on('request', app);

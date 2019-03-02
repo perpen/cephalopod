@@ -19,7 +19,7 @@ function podBasePath(url) {
   return `/pod/${matches[2]}`;
 }
 
-const theProxy = proxy({
+const theProxy000 = proxy({
   target: 'dummy',
 
   ws: true,
@@ -33,6 +33,7 @@ const theProxy = proxy({
   logLevel: 'debug',
 
   // We calculate the container port number from the pod number in the url
+  // FIXME cache it
   router: req => {
     const matches = POD_PATH_RX.exec(req.url);
     if (!matches) return `http://127.0.0.1:${PORT}`; // go home
@@ -62,17 +63,28 @@ const theProxy = proxy({
   }
 });
 
-app.use('/pod', theProxy);
-app.get('/', (req, res) => res.send('FIXME this is the portal page'))
-app.get('/status', (req, res) => res.send('FIXME pods stats'))
-app.use(function (req, res, next) {
-    res.status(404).send('not found')
-})
+const theProxy = proxy({
+  target: `http://127.0.0.1:3031/theia`,
+  ws: true,
+  // changeOrigin: true,
+  pathRewrite: {'^/pod/3/' : '/'},
+  logLevel: 'debug',
+  onError: function onError(err, req, res) {
+    console.log('theProxy error', err);
+    res.writeHead(500, { 'Content-Type': 'text/plain' })
+    res.end('Something went wrong.')
+  },
+});
 
-// app.listen(PORT, INTERFACE, () => console.log(`cephalo listening on port ${PORT}`));
+app.use('/pod/3', theProxy);
+// app.get('/', (req, res) => res.send('FIXME this is the portal page'))
+// app.get('/status', (req, res) => res.send('FIXME pods stats'))
+//app.use(function (req, res, next) {
+//    res.status(404).send('not found')
+//})
 
 var server = http.createServer();
-
 server.on('request', app);
+server.on('upgrade', theProxy.upgrade);
 server.on('error', (e) => console.log(`error: ${e}`));
 server.listen(PORT, INTERFACE, () => console.log(`cephalo listening on port ${INTERFACE}:${PORT}`));
