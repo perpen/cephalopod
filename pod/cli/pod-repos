@@ -8,17 +8,13 @@
 }
 
 case $1 in
-"")
-    verbose=true
-    ;;
-"-v")
-    verbose=
-    ;;
+"") ;;
+"-v") verbose=yes ;;
 *)
     cat <<EOF 1>&2
-Usage: pod repos [-v]
+Usage: $0 repos [-v]
   Prints the number of dirty repos, or nothing.
-  -v Runs git status on each dirty repo
+  -v for change details
 EOF
     exit 2
     ;;
@@ -30,12 +26,15 @@ dirty_repos=""
 for git_dir in $(find ~ -type d -a -name .git); do
     cd $git_dir/..
     uncommitted=$(git status -s | wc -l)
-    unpushed=$(git log --branches --not --remotes | grep '^commmit ' | wc -l)
+    unpushed=$(git log --branches --not --remotes | grep '^commit ' | wc -l)
     [[ $(($uncommitted + $unpushed)) -gt 0 ]] && {
         dirty_count=$(($dirty_count + 1))
-        $verbose echo "${bold_on}Repo: $(pwd)${bold_off}"
-        $verbose git status -s
-        $verbose echo
+        [[ -n "$verbose" ]] && {
+            echo "${bold_on}Repo: $(pwd | sed "s#^$HOME#\~#")${bold_off}"
+            [[ $unpushed -gt 0 ]] && echo "Unpushed commits"
+            git status -s
+            echo
+        }
     }
 done
 
