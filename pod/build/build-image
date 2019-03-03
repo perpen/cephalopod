@@ -1,4 +1,5 @@
 #!/bin/bash
 set -ex
 cd $(dirname $0)/..
+docker rmi columnated/pod || true
 docker build -t columnated/pod .
