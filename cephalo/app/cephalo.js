@@ -2,7 +2,8 @@ var proxy = require('http-proxy-middleware');
 var http = require('http');
 var app = require('express')();
 
-const PORT = 8080;
+// const PORT = 8080;
+const PORT = 3000;
 const INTERFACE = '0.0.0.0';
 const POD_PORT_RANGE_START = 3000;
 const POD_PORT_RANGE_WIDTH = 10;
@@ -64,10 +65,10 @@ const theProxy000 = proxy({
 });
 
 const theProxy = proxy({
-  target: `http://127.0.0.1:3031/theia`,
+  target: `http://127.0.0.1:3031`,
   ws: true,
   // changeOrigin: true,
-  pathRewrite: {'^/pod/3/' : '/'},
+  pathRewrite: {'^/pod/3' : '/'},
   logLevel: 'debug',
   onError: function onError(err, req, res) {
     console.log('theProxy error', err);

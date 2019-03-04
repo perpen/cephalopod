@@ -205,7 +205,7 @@ function podStatus(req, res) {
 // app.use('/theia', initTheia);
 const theiaProxy = proxy('/theia', {
   target: `http://127.0.0.1:${THEIA_PORT}`,
-  pathRewrite: {'^/theia/' : '/'},
+  pathRewrite: {'^/theia' : ''},
   logLevel: 'debug',
   ws: true,
   onError: function onError(err, req, res) {

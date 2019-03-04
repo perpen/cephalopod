@@ -1,8 +1,8 @@
 {
-  "name": "rproxy",
+  "name": "cephalo",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "cephalo.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 0"
   },
@@ -12,5 +12,6 @@
     "express": "^4.16.4",
     "express-http-proxy": "^1.5.1",
     "http-proxy-middleware": "^0.19.1"
-  }
+  },
+  "private": true
 }
