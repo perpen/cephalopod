@@ -45,17 +45,16 @@ function startTheiaIfNotRunning() {
     });
 }
 
-function initTheia(req, res, next) {
-    console.log('initTheia');
-    if (req.method != 'GET' || !decryptionNeeded()) {
-        next();
-        return;
-    }
+function launcher(req, res, next) {
+    console.log('launcher', req.originalUrl);
 
     startTheiaIfNotRunning();
 
-    console.log('decryptionNeeded');
-    const theiaPath = `/pod/${CONFIG.pod_number}/theia/bundle.js`; //FIXME
+    const decrypted = !decryptionNeeded();
+    console.log(`decrypted=${decrypted}`);
+    const decryptionDisplay = decrypted ? "none" : "block";
+    const appPath = `/pod/${CONFIG.pod_number}/theia/`; //FIXME
+    const theiaCheckPath = `/pod/${CONFIG.pod_number}/theia/`; //FIXME
     const decryptPath = `/pod/${CONFIG.pod_number}/decrypt`; //FIXME
 
     res.setHeader('Content-type', 'text/html');
@@ -73,7 +72,7 @@ function initTheia(req, res, next) {
             Theia <span id="theiaStatus">...</span>
             <br>
             <br>
-            <div id="decryption">
+            <div id="decryption" style="display: ${decryptionDisplay};">
               Decryption key for secrets in [linux-home url]:
               <input type="password" id="decryptionKey"/>
               <span id="decryptionError"/>
@@ -85,7 +84,7 @@ function initTheia(req, res, next) {
               const fieldElt = document.getElementById('decryptionKey');
               const errorElt = document.getElementById('decryptionError');
               const theiaStatusElt = document.getElementById('theiaStatus');
-              var decrypted = false;
+              var decrypted = ${decrypted};
 
               const push = function() {
                 fieldElt.disabled = true;
@@ -97,7 +96,6 @@ function initTheia(req, res, next) {
 
                 fetch('${decryptPath}', options)
                   .then(res => {
-                    console.log("res.ok:", res.ok);
                     if (res.ok) {
                       decryptionElt.innerHTML = "";
                       decrypted = true;
@@ -119,13 +117,12 @@ function initTheia(req, res, next) {
 
               const theiaMonitor = function() {
                 console.log('checking theia');
-                fetch('${theiaPath}', theiaOptions)
+                fetch('${theiaCheckPath}', theiaOptions)
                 .then(res => {
-                  console.log("res.ok:", res.ok);
                   if (res.ok) {
                     theiaStatus.innerHTML = "started";
-                    // Don't reload until secrets are decrypted
-                    if (decrypted) location.reload(true);
+                    // Don't move until secrets are decrypted
+                    if (decrypted) window.location.href = '${appPath}';
                   } else {
                     theiaStatus.innerHTML = "starting...";
                   }
@@ -145,7 +142,7 @@ function decrypt(req, res) {
     console.log('decrypt');
     // Maybe we decrypted from somewhere else, check again
     if (!decryptionNeeded()) {
-        next();
+        res.status(202).end();
         return;
     }
 
@@ -202,7 +199,6 @@ function podStatus(req, res) {
 
 //////////////////////////////// theia
 
-// app.use('/theia', initTheia);
 const theiaProxy = proxy('/theia', {
   target: `http://127.0.0.1:${THEIA_PORT}`,
   pathRewrite: {'^/theia' : ''},
@@ -210,8 +206,13 @@ const theiaProxy = proxy('/theia', {
   ws: true,
   onError: function onError(err, req, res) {
     console.log('theiaProxy error', err);
+    console.log('theiaProxy errno', err.errno);
+    if (err.errno == 'ECONNREFUSED') {
+      res.redirect(`/pod/${CONFIG.pod_number}/launcher?app=theia`);
+      return;
+    }
     res.writeHead(500, { 'Content-Type': 'text/plain' })
-    res.end('Something went wrong.')
+    res.end('Something went wrong. FIXME show some logs')
   },
 });
 app.use(theiaProxy);
@@ -236,12 +237,13 @@ app.use('/wetty', proxy({
 //////////////////////////////// rest
 
 app.use(bodyParser.json());
+app.get('/launcher', launcher);
 app.get('/status', podStatus);
 app.post('/decrypt', decrypt);
 
-app.use(function (req, res, next) {
-    res.status(404).send('not found');
-})
+//app.use(function (req, res, next) {
+//    res.status(404).send('not found');
+//})
 
 var server = http.createServer();
 server.on('request', app);

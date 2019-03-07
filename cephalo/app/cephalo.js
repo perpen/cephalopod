@@ -2,8 +2,8 @@ var proxy = require('http-proxy-middleware');
 var http = require('http');
 var app = require('express')();
 
-// const PORT = 8080;
-const PORT = 3000;
+const PORT = 8080;
+// const PORT = 3000;
 const INTERFACE = '0.0.0.0';
 const POD_PORT_RANGE_START = 3000;
 const POD_PORT_RANGE_WIDTH = 10;
@@ -20,7 +20,7 @@ function podBasePath(url) {
   return `/pod/${matches[2]}`;
 }
 
-const theProxy000 = proxy({
+const theProxy = proxy({
   target: 'dummy',
 
   ws: true,
@@ -28,7 +28,7 @@ const theProxy000 = proxy({
 
   pathRewrite: (path, req) => {
     console.log(`path: ${path}`);
-    return path.replace(/^\/pod\/\d+\//, '/');
+    return path.replace(/^\/pod\/\d+/, '/');
   },
 
   logLevel: 'debug',
@@ -64,7 +64,7 @@ const theProxy000 = proxy({
   }
 });
 
-const theProxy = proxy({
+const theProxy0 = proxy({
   target: `http://127.0.0.1:3031`,
   ws: true,
   // changeOrigin: true,
