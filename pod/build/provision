@@ -140,6 +140,21 @@ install_tmux() {
     #FIXME - removes c++?? - yum remove -y $packages
 }
 
+install_inotify() {
+    cd $TMP
+    curl -LO https://github.com/rvoicilas/inotify-tools/archive/master.zip
+    unzip master.zip
+    rm master.zip
+    cd inotify-tools-master
+    yum install -y libtool
+    sh autogen.sh
+    ./configure
+    make
+    make install
+    cd ..
+    rm -rf inotify-tools-master
+}
+
 ###############
 
 source $(dirname $0)/../config.sh
@@ -151,6 +166,7 @@ if [[ -z "$1" ]]; then
     install_packages
     install_nvm
     install_yarn
+    install_inotify
     install_git
     install_tmux
     install_wetty

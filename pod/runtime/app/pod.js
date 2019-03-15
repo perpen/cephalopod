@@ -7,7 +7,8 @@ HTTP entry point for the pod.
 - FIXME use same mechanism to start wetty on demand
 */
 const proxy = require('http-proxy-middleware')
-const app = require('express')()
+const express = require('express')
+const app = express()
 const http = require('http')
 const request = require('request')
 const url = require('url')
@@ -15,6 +16,7 @@ const fs = require('fs')
 const path = require('path')
 const proc = require('child_process')
 const bodyParser = require('body-parser')
+const memoize = require('memoizee')
 
 const PORT = 3000
 const WETTY_PORT = 3001
@@ -26,8 +28,6 @@ const CONFIG = (() => {
 })()
 
 function decryptionNeeded() {
-    // FIXME cache, this is called on each theia request
-    // every 50 calls or 1mn?
     const hasSecrets = fs.existsSync(`${process.env.HOME}/.pod-secrets.gpg`)
     const decrypted = fs.existsSync(`${process.env.HOME}/.pod/secrets`)
     console.log(`has: ${hasSecrets}, decrypted: ${decrypted}`)
@@ -59,84 +59,13 @@ function launcher(req, res, next) {
     const decryptPath = `/pod/${CONFIG.pod_number}/decrypt` //FIXME
 
     res.setHeader('Content-type', 'text/html')
-    const html = `
-      <html>
-        <head>
-          <title>${CONFIG.pod_number}@node-a</title>
-        </head>
-        <body>
-          <div>
-            <h2>pod ${CONFIG.pod_number}@node-a</h2>
-            Owner: ${CONFIG.user_display_name} (${CONFIG.user})
-            <br>
-            <br>
-            Theia <span id="theiaStatus">...</span>
-            <br>
-            <br>
-            <div id="decryption" style="display: ${decryptionDisplay};">
-              Decryption key for secrets in [linux-home url]:
-              <input type="password" id="decryptionKey"/>
-              <span id="decryptionError"/>
-            </div>
-          </div>
-          <script>
-            (function() {
-              const decryptionElt = document.getElementById('decryption')
-              const fieldElt = document.getElementById('decryptionKey')
-              const errorElt = document.getElementById('decryptionError')
-              const theiaStatusElt = document.getElementById('theiaStatus')
-              var decrypted = ${decrypted}
-
-              const push = function() {
-                fieldElt.disabled = true
-                const options = {
-                  headers : { "content-type" : "application/json; charset=UTF-8"},
-                  body : JSON.stringify({key: fieldElt.value}),
-                  method : "POST",
-                }
-
-                fetch('${decryptPath}', options)
-                  .then(res => {
-                    if (res.status === 202) {
-                      decryptionElt.innerHTML = ""
-                      decrypted = true
-                    } else {
-                      errorElt.innerHTML = "decryption failed"
-                      fieldElt.disabled = false
-                    }
-                  })
-              }
-
-              fieldElt.onkeydown = () => {
-                  if (window.event.keyCode=='13') push()
-              }
-
-              const theiaOptions = {
-                headers : { "content-type" : "application/json; charset=UTF-8"},
-                method : "HEAD",
-              }
-
-              const theiaMonitor = function() {
-                console.log('checking theia')
-                fetch('${theiaCheckPath}', theiaOptions)
-                .then(res => {
-                  if (res.ok) {
-                    theiaStatus.innerHTML = "started"
-                    // Don't move until secrets are decrypted
-                    if (decrypted) window.location.href = '${appPath}'
-                  } else {
-                    theiaStatus.innerHTML = "starting..."
-                  }
-                })
-                setTimeout(theiaMonitor, 2000)
-              }
-              theiaMonitor()
-            })()
-          </script>
-        </body>
-      </html>`
+    const html = ``
     res.end(html)
+}
 
+function decrypted(req, res) {
+    console.log('decrypted')
+    res.status(200).send(decryptionNeeded())
 }
 
 function decrypt(req, res) {
@@ -180,12 +109,12 @@ function decrypt(req, res) {
 }
 
 function podStatus(req, res) {
-    // console.log(req)
     console.log(`target host: ${req.headers['host']}`)
     if (req.url != '/status') return false
 
     const top = proc.spawnSync('top', ['-bn1'])
     CONFIG['top'] = top.stderr.toString() + '\n' + top.stdout.toString()
+    // FIXME do i need su minus?
     const pairing = proc.spawnSync('su', ['-', CONFIG.user, '-c', `pod pairing status`])
     CONFIG['pairing'] = pairing.stdout.toString()
     console.log(CONFIG)
@@ -194,6 +123,7 @@ function podStatus(req, res) {
     res.end(JSON.stringify(CONFIG))
     return true
 }
+const podStatusMemo = memoize(podStatus, {maxAge: 30000})
 
 //////////////////////////////// UIs
 
@@ -224,14 +154,16 @@ function setupUiRoute(server, ui, port) {
     })
 
     app.use(theProxy)
-    server.on('upgrade', theProxy.upgrade)
+    // server.on('upgrade', theProxy.upgrade)
 }
 
 //////////////////////////////// rest
 
+app.use('/', express.static(path.join(__dirname, 'public')))
 app.use(bodyParser.json())
 app.get('/launcher', launcher)
-app.get('/status', podStatus)
+app.get('/status', podStatusMemo)
+app.get('/decrypt', decrypted)
 app.post('/decrypt', decrypt)
 
 //app.use(function (req, res, next) {

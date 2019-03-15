@@ -1,3 +1,16 @@
+POD PAGE
+========
+Info:
+- owner
+- creation date
+- avg cpu and ram
+Links:
+- node page
+- [theia] running
+- [wetty] stopped
+Actions:
+- decrypt
+
 MAINTENANCE
 ===========
 - kill containers (or just processes) using lots cpu/ram/processes/files for too long
