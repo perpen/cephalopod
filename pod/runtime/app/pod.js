@@ -6,58 +6,59 @@ HTTP entry point for the pod.
   key, so we can decrypt the secret and run the init before starting theia.
 - FIXME use same mechanism to start wetty on demand
 */
-const proxy = require('http-proxy-middleware');
-const app = require('express')();
-const http = require('http');
-const request = require('request');
-const url = require('url');
-const fs = require('fs');
-const path = require('path');
-const proc = require('child_process');
-const bodyParser = require('body-parser');
+const proxy = require('http-proxy-middleware')
+const app = require('express')()
+const http = require('http')
+const request = require('request')
+const url = require('url')
+const fs = require('fs')
+const path = require('path')
+const proc = require('child_process')
+const bodyParser = require('body-parser')
 
-const PORT = 3000;
-const WETTY_PORT = 3001;
-const THEIA_PORT = 3002;
-const INTERFACE = '0.0.0.0';
+const PORT = 3000
+const WETTY_PORT = 3001
+const THEIA_PORT = 3002
+const INTERFACE = '0.0.0.0'
 const CONFIG = (() => {
-    const dir = `${process.env.HOME}/.pod`;
-    return JSON.parse(fs.readFileSync(`${dir}/params.json`));
-})();
+    const dir = `${process.env.HOME}/.pod`
+    return JSON.parse(fs.readFileSync(`${dir}/params.json`))
+})()
 
 function decryptionNeeded() {
     // FIXME cache, this is called on each theia request
     // every 50 calls or 1mn?
-    const hasSecrets = fs.existsSync(`${process.env.HOME}/.pod-secrets.gpg`);
-    const decrypted = fs.existsSync(`${process.env.HOME}/.pod/secrets`);
-    console.log(`has: ${hasSecrets}, decrypted: ${decrypted}`);
-    return hasSecrets && !decrypted;
+    const hasSecrets = fs.existsSync(`${process.env.HOME}/.pod-secrets.gpg`)
+    const decrypted = fs.existsSync(`${process.env.HOME}/.pod/secrets`)
+    console.log(`has: ${hasSecrets}, decrypted: ${decrypted}`)
+    return hasSecrets && !decrypted
 }
 
 function startTheiaIfNotRunning() {
-    const theiaPath = `http://127.0.0.1:${THEIA_PORT}`; //FIXME
+    const theiaPath = `http://127.0.0.1:${THEIA_PORT}` //FIXME
     request.head(theiaPath, (error, response, body) => {
         if (!response) {
-            console.log("STARTING THEIA");
-            proc.spawn('pod', ['theia', 'start']);
-            console.log("STARTING THEIA DONE");
+            console.log("STARTING THEIA")
+            // proc.spawn('pod', ['theia', 'start'])
+            proc.spawn('bash', ['-c', 'pod theia start &> /tmp/t'])
+            console.log("STARTING THEIA DONE")
         }
-    });
+    })
 }
 
 function launcher(req, res, next) {
-    console.log('launcher', req.originalUrl);
+    console.log('launcher', req.originalUrl)
 
-    startTheiaIfNotRunning();
+    startTheiaIfNotRunning()
 
-    const decrypted = !decryptionNeeded();
-    console.log(`decrypted=${decrypted}`);
-    const decryptionDisplay = decrypted ? "none" : "block";
-    const appPath = `/pod/${CONFIG.pod_number}/theia/`; //FIXME
-    const theiaCheckPath = `/pod/${CONFIG.pod_number}/theia/`; //FIXME
-    const decryptPath = `/pod/${CONFIG.pod_number}/decrypt`; //FIXME
+    const decrypted = !decryptionNeeded()
+    console.log(`decrypted=${decrypted}`)
+    const decryptionDisplay = decrypted ? "none" : "block"
+    const appPath = `/pod/${CONFIG.pod_number}/theia/` //FIXME
+    const theiaCheckPath = `/pod/${CONFIG.pod_number}/theia/bundle.js` //FIXME
+    const decryptPath = `/pod/${CONFIG.pod_number}/decrypt` //FIXME
 
-    res.setHeader('Content-type', 'text/html');
+    res.setHeader('Content-type', 'text/html')
     const html = `
       <html>
         <head>
@@ -80,150 +81,153 @@ function launcher(req, res, next) {
           </div>
           <script>
             (function() {
-              const decryptionElt = document.getElementById('decryption');
-              const fieldElt = document.getElementById('decryptionKey');
-              const errorElt = document.getElementById('decryptionError');
-              const theiaStatusElt = document.getElementById('theiaStatus');
-              var decrypted = ${decrypted};
+              const decryptionElt = document.getElementById('decryption')
+              const fieldElt = document.getElementById('decryptionKey')
+              const errorElt = document.getElementById('decryptionError')
+              const theiaStatusElt = document.getElementById('theiaStatus')
+              var decrypted = ${decrypted}
 
               const push = function() {
-                fieldElt.disabled = true;
+                fieldElt.disabled = true
                 const options = {
                   headers : { "content-type" : "application/json; charset=UTF-8"},
                   body : JSON.stringify({key: fieldElt.value}),
                   method : "POST",
-                };
+                }
 
                 fetch('${decryptPath}', options)
                   .then(res => {
                     if (res.ok) {
-                      decryptionElt.innerHTML = "";
-                      decrypted = true;
+                      decryptionElt.innerHTML = ""
+                      decrypted = true
                     } else {
-                      errorElt.innerHTML = "decryption failed";
-                      fieldElt.disabled = false;
+                      errorElt.innerHTML = "decryption failed"
+                      fieldElt.disabled = false
                     }
-                  });
-              };
+                  })
+              }
 
               fieldElt.onkeydown = () => {
-                  if (window.event.keyCode=='13') push();
+                  if (window.event.keyCode=='13') push()
               }
 
               const theiaOptions = {
                 headers : { "content-type" : "application/json; charset=UTF-8"},
-                method : "GET",
-              };
+                method : "HEAD",
+              }
 
               const theiaMonitor = function() {
-                console.log('checking theia');
+                console.log('checking theia')
                 fetch('${theiaCheckPath}', theiaOptions)
                 .then(res => {
                   if (res.ok) {
-                    theiaStatus.innerHTML = "started";
+                    theiaStatus.innerHTML = "started"
                     // Don't move until secrets are decrypted
-                    if (decrypted) window.location.href = '${appPath}';
+                    if (decrypted) window.location.href = '${appPath}'
                   } else {
-                    theiaStatus.innerHTML = "starting...";
+                    theiaStatus.innerHTML = "starting..."
                   }
                 })
-                setTimeout(theiaMonitor, 2000);
+                setTimeout(theiaMonitor, 2000)
               }
-              theiaMonitor();
-            })();
+              theiaMonitor()
+            })()
           </script>
         </body>
-      </html>`;
-    res.end(html);
+      </html>`
+    res.end(html)
 
 }
 
 function decrypt(req, res) {
-    console.log('decrypt');
+    console.log('decrypt')
     // Maybe we decrypted from somewhere else, check again
     if (!decryptionNeeded()) {
-        res.status(202).end();
-        return;
+        res.status(202).end()
+        return
     }
 
-    const decryptionKey = req.body.key;
-    const homedir = `${process.env.HOME}`;
+    const decryptionKey = req.body.key
+    const homedir = `${process.env.HOME}`
 
     // We pipe the key from this process to prevent it from appearing in ps output
-    const sink = proc.spawn('bash',
+    const gpg = proc.spawn('bash',
       ['-c', `gpg -d --batch --passphrase-fd 0 --cipher-algo aes256 ${homedir}/.pod-secrets.gpg | tar xfz - -C ${homedir}`],
-      {stdio: 'pipe'});
-      // {stdio: ['pipe', process.stdout, process.stderr]});
+      {stdio: 'pipe'})
+      // {stdio: ['pipe', process.stdout, process.stderr]})
 
-    sink.on('close', (code) => {
-      console.log(`decrypting exit code ${code}`);
+    gpg.on('close', (code) => {
+      console.log(`decrypting exit code ${code}`)
       if (code == 0) {
-        res.status(202).end();
+        res.status(202).end()
       } else {
-        res.status(400).end();
+        res.status(400).end()
       }
-    });
-    sink.stdout.on('data', (data) => {
-      console.log(`stdout: ${data}`);
-    });
-    sink.stderr.on('data', (data) => {
-      console.log(`stderr: ${data}`);
-    });
-    sink.on('error', (err) => {
-      console.log('error decrypting secrets', err);
-      res.status(500).end();
-    });
+    })
+    gpg.stdout.on('data', (data) => {
+      console.log(`stdout: ${data}`)
+    })
+    gpg.stderr.on('data', (data) => {
+      console.log(`stderr: ${data}`)
+    })
+    gpg.on('error', (err) => {
+      console.log('error decrypting secrets', err)
+      res.status(500).end()
+    })
 
-    sink.stdin.write(decryptionKey + '\n');
-    sink.stdin.end();
+    gpg.stdin.write(decryptionKey + '\n')
+    gpg.stdin.end()
 }
 
 function podStatus(req, res) {
-    // console.log(req);
-    console.log(`target host: ${req.headers['host']}`);
-    if (req.url != '/status') return false;
+    // console.log(req)
+    console.log(`target host: ${req.headers['host']}`)
+    if (req.url != '/status') return false
 
-    const ps = proc.spawnSync('ps', ['-ef']);
-    CONFIG['ps'] = ps.stderr.toString() + '\n' + ps.stdout.toString();
-    const top = proc.spawnSync('top', ['-bn1']);
-    CONFIG['top'] = top.stderr.toString() + '\n' + top.stdout.toString();
-    const pairing = proc.spawnSync('su', ['-', CONFIG.user, '-c', `pod pairing status`]);
-    CONFIG['pairing'] = pairing.stdout.toString();
-    console.log(CONFIG);
+    const ps = proc.spawnSync('ps', ['-ef'])
+    CONFIG['ps'] = ps.stderr.toString() + '\n' + ps.stdout.toString()
+    const top = proc.spawnSync('top', ['-bn1'])
+    CONFIG['top'] = top.stderr.toString() + '\n' + top.stdout.toString()
+    const pairing = proc.spawnSync('su', ['-', CONFIG.user, '-c', `pod pairing status`])
+    CONFIG['pairing'] = pairing.stdout.toString()
+    console.log(CONFIG)
 
-    // res.headers['Content-type'] = 'application/json';
-    res.setHeader('Content-type', 'application/json');
-    res.end(JSON.stringify(CONFIG));
-    return true;
+    res.setHeader('Content-type', 'application/json')
+    res.end(JSON.stringify(CONFIG))
+    return true
 }
 
 //////////////////////////////// theia
 
+app.get('/theia', function(req, res, next) {
+  if (req.originalUrl.slice(-1) == '/') return next()
+  res.redirect(`/pod/${CONFIG.pod_number}/theia/`)
+})
 const theiaProxy = proxy('/theia', {
   target: `http://127.0.0.1:${THEIA_PORT}`,
-  pathRewrite: {'^/theia' : ''},
+  pathRewrite: {'^/theia/' : '/'},
   logLevel: 'debug',
   ws: true,
   onError: function onError(err, req, res) {
-    console.log('theiaProxy error', err);
-    console.log('theiaProxy errno', err.errno);
+    console.log('theiaProxy error', err)
+    console.log('theiaProxy errno', err.errno)
     if (err.errno == 'ECONNREFUSED') {
-      res.redirect(`/pod/${CONFIG.pod_number}/launcher?app=theia`);
-      return;
+      res.redirect(`/pod/${CONFIG.pod_number}/launcher?app=theia`)
+      return
     }
     res.writeHead(500, { 'Content-Type': 'text/plain' })
     res.end('Something went wrong. FIXME show some logs')
   },
-});
-app.use(theiaProxy);
+})
+app.use(theiaProxy)
 
 //////////////////////////////// wetty
 
 // because my wetty fork uses relative paths for resources, we want the trailing slash.
 app.get('/wetty', function(req, res, next) {
-  if (req.originalUrl.slice(-1) == '/') return next();
-  res.redirect(`/pod/${CONFIG.pod_number}/wetty/`);
-});
+  if (req.originalUrl.slice(-1) == '/') return next()
+  res.redirect(`/pod/${CONFIG.pod_number}/wetty/`)
+})
 app.use('/wetty', proxy({
   target: `http://127.0.0.1:${WETTY_PORT}`,
   pathRewrite: {'^/wetty/' : '/'},
@@ -232,21 +236,21 @@ app.use('/wetty', proxy({
   },
   ws: true,
   logLevel: 'debug'
-}));
+}))
 
 //////////////////////////////// rest
 
-app.use(bodyParser.json());
-app.get('/launcher', launcher);
-app.get('/status', podStatus);
-app.post('/decrypt', decrypt);
+app.use(bodyParser.json())
+app.get('/launcher', launcher)
+app.get('/status', podStatus)
+app.post('/decrypt', decrypt)
 
 //app.use(function (req, res, next) {
-//    res.status(404).send('not found');
+//    res.status(404).send('not found')
 //})
 
-var server = http.createServer();
-server.on('request', app);
-server.on('upgrade', theiaProxy.upgrade);
-server.on('error', (e) => console.log(`error: ${e}`));
-server.listen(PORT, INTERFACE, () => console.log(`pod listening on port ${INTERFACE}:${PORT}`));
+var server = http.createServer()
+server.on('request', app)
+server.on('upgrade', theiaProxy.upgrade)
+server.on('error', (e) => console.log(`error: ${e}`))
+server.listen(PORT, INTERFACE, () => console.log(`pod listening on port ${INTERFACE}:${PORT}`))
