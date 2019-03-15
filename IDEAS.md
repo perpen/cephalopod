@@ -1,7 +1,9 @@
 MAINTENANCE
 ===========
 - kill containers (or just processes) using lots cpu/ram/processes/files for too long
-- kill theia on inactivity?
+- kill wetty/theia on inactivity. Can be done from pod.js? But how does it detect
+  activity on websocket?
+- user/team contributing nodes have higher quota
 
 ARCHIVAL
 ========

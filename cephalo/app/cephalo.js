@@ -155,19 +155,6 @@ const theProxy = proxy({
   }
 })
 
-const theProxy0 = proxy({
-  target: `http://127.0.0.1:3031`,
-  ws: true,
-  // changeOrigin: true,
-  pathRewrite: {'^/pod/3' : '/'},
-  logLevel: 'debug',
-  onError: function onError(err, req, res) {
-    console.log('theProxy error', err)
-    res.writeHead(500, { 'Content-Type': 'text/plain' })
-    res.end('Something went wrong.')
-  },
-})
-
 app.use('/pod/3', theProxy)
 // app.get('/', (req, res) => res.send('FIXME this is the portal page'))
 // app.get('/status', (req, res) => res.send('FIXME pods stats'))

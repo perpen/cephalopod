@@ -97,7 +97,7 @@ function launcher(req, res, next) {
 
                 fetch('${decryptPath}', options)
                   .then(res => {
-                    if (res.ok) {
+                    if (res.status === 202) {
                       decryptionElt.innerHTML = ""
                       decrypted = true
                     } else {
@@ -184,8 +184,6 @@ function podStatus(req, res) {
     console.log(`target host: ${req.headers['host']}`)
     if (req.url != '/status') return false
 
-    const ps = proc.spawnSync('ps', ['-ef'])
-    CONFIG['ps'] = ps.stderr.toString() + '\n' + ps.stdout.toString()
     const top = proc.spawnSync('top', ['-bn1'])
     CONFIG['top'] = top.stderr.toString() + '\n' + top.stdout.toString()
     const pairing = proc.spawnSync('su', ['-', CONFIG.user, '-c', `pod pairing status`])
@@ -197,46 +195,37 @@ function podStatus(req, res) {
     return true
 }
 
-//////////////////////////////// theia
+//////////////////////////////// UIs
 
-app.get('/theia', function(req, res, next) {
-  if (req.originalUrl.slice(-1) == '/') return next()
-  res.redirect(`/pod/${CONFIG.pod_number}/theia/`)
-})
-const theiaProxy = proxy('/theia', {
-  target: `http://127.0.0.1:${THEIA_PORT}`,
-  pathRewrite: {'^/theia/' : '/'},
-  logLevel: 'debug',
-  ws: true,
-  onError: function onError(err, req, res) {
-    console.log('theiaProxy error', err)
-    console.log('theiaProxy errno', err.errno)
-    if (err.errno == 'ECONNREFUSED') {
-      res.redirect(`/pod/${CONFIG.pod_number}/launcher?app=theia`)
-      return
-    }
-    res.writeHead(500, { 'Content-Type': 'text/plain' })
-    res.end('Something went wrong. FIXME show some logs')
-  },
-})
-app.use(theiaProxy)
+function setupUiRoute(server, ui, port) {
+    const context = `/${ui}`
+    app.get(context, function(req, res, next) {
+      if (req.originalUrl.slice(-1) == '/') return next()
+      res.redirect(`${req.originalUrl}/`)
+    })
 
-//////////////////////////////// wetty
+    const rewriteOption = {}
+    rewriteOption[`^${context}/`] = '/'
 
-// because my wetty fork uses relative paths for resources, we want the trailing slash.
-app.get('/wetty', function(req, res, next) {
-  if (req.originalUrl.slice(-1) == '/') return next()
-  res.redirect(`/pod/${CONFIG.pod_number}/wetty/`)
-})
-app.use('/wetty', proxy({
-  target: `http://127.0.0.1:${WETTY_PORT}`,
-  pathRewrite: {'^/wetty/' : '/'},
-  cookiePathRewrite: {
-    '/': '/wetty',
-  },
-  ws: true,
-  logLevel: 'debug'
-}))
+    const theProxy = proxy(context, {
+      target: `http://127.0.0.1:${port}`,
+      pathRewrite: rewriteOption,
+      ws: true,
+      logLevel: 'debug',
+      onError: function onError(err, req, res) {
+        console.log('uiProxy error', err)
+        if (err.errno == 'ECONNREFUSED') {
+          res.redirect(`/pod/${CONFIG.pod_number}/launcher?app=${ui}`)
+          return
+        }
+        res.writeHead(500, { 'Content-Type': 'text/plain' })
+        res.end('Something went wrong. FIXME show some logs')
+      },
+    })
+
+    app.use(theProxy)
+    server.on('upgrade', theProxy.upgrade)
+}
 
 //////////////////////////////// rest
 
@@ -251,6 +240,7 @@ app.post('/decrypt', decrypt)
 
 var server = http.createServer()
 server.on('request', app)
-server.on('upgrade', theiaProxy.upgrade)
+setupUiRoute(server, 'wetty', WETTY_PORT)
+setupUiRoute(server, 'theia', THEIA_PORT)
 server.on('error', (e) => console.log(`error: ${e}`))
 server.listen(PORT, INTERFACE, () => console.log(`pod listening on port ${INTERFACE}:${PORT}`))
