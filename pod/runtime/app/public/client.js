@@ -27,10 +27,10 @@
       body : JSON.stringify({key: decryptionKey}),
       method : "POST",
     }
-    fetch('${decryptPath}', options)
+    fetch('decrypt', options)
       .then(res => {
         if (res.status === 202) {
-          decryptionElt.innerHTML = ""
+          decryptionElt.style = "display: none;"
           decrypted = true
         } else {
           fieldElt.disabled = false
@@ -45,10 +45,7 @@
   // Retrieve pod info
   const podMonitor = function() {
     console.log(`pod status`)
-    const r = fetch('status', {
-        // headers : { "content-type" : "application/json; charset=UTF-8"},
-        // method : "GET",
-      })
+    const r = fetch('status')
       .then(res => res.json())
       .then(d => {
         console.log(d)
@@ -58,12 +55,25 @@
           userDisplayName: d.user_display_name,
           user: d.user,
           topOutput: d.top.replace(/\n/g, "<br>"),
+          homedirUrl: `<a id="homedirUrl" href="${d.homedir_url}">${d.homedir_url}</a>`,
         }
         redraw(data)
       })
     setTimeout(() => { podMonitor() }, 4000)
   }
   podMonitor()
+
+  // Secrets decryption
+  const secretsMonitor = function() {
+    console.log(`secrets`)
+    const r = fetch('decrypt')
+      .then(res => res.json())
+      .then(d => {
+        console.log(d)
+      })
+    setTimeout(() => { secretsMonitor() }, 4000)
+  }
+  secretsMonitor()
 
   // Checks whether a UI is started
   const uiMonitor = function(name, path, testPath) {
@@ -74,12 +84,11 @@
     }
     fetch(testPath, options)
     .then(res => {
-      const uiStatus = document.getElementById(`${name}Status`)
-      if (res.ok) {
-        // uiStatus.innerHTML = "started"
-        uiStatus.innerHTML = `<a href="${path}">open</a>`
+      const elt = document.getElementById(`${name}Status`)
+      if (res.status == 200) {
+        elt.innerHTML = `<a href="${path}">${name}</a>`
       } else {
-        uiStatus.innerHTML = "stopped"
+        elt.innerHTML = "${name} stopped"
       }
     })
     setTimeout(() => { uiMonitor(name, path, testPath) }, 4000)

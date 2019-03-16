@@ -46,26 +46,9 @@ function startTheiaIfNotRunning() {
     })
 }
 
-function launcher(req, res, next) {
-    console.log('launcher', req.originalUrl)
-
-    startTheiaIfNotRunning()
-
-    const decrypted = !decryptionNeeded()
-    console.log(`decrypted=${decrypted}`)
-    const decryptionDisplay = decrypted ? "none" : "block"
-    const appPath = `/pod/${CONFIG.pod_number}/theia/` //FIXME
-    const theiaCheckPath = `/pod/${CONFIG.pod_number}/theia/bundle.js` //FIXME
-    const decryptPath = `/pod/${CONFIG.pod_number}/decrypt` //FIXME
-
-    res.setHeader('Content-type', 'text/html')
-    const html = ``
-    res.end(html)
-}
-
 function decrypted(req, res) {
     console.log('decrypted')
-    res.status(200).send(decryptionNeeded())
+    res.status(200).send(!decryptionNeeded())
 }
 
 function decrypt(req, res) {
@@ -145,7 +128,7 @@ function setupUiRoute(server, ui, port) {
       onError: function onError(err, req, res) {
         console.log('uiProxy error', err)
         if (err.errno == 'ECONNREFUSED') {
-          res.redirect(`/pod/${CONFIG.pod_number}/launcher?app=${ui}`)
+          res.redirect(`/pod/${CONFIG.pod_number}/`)
           return
         }
         res.writeHead(500, { 'Content-Type': 'text/plain' })
@@ -161,7 +144,6 @@ function setupUiRoute(server, ui, port) {
 
 app.use('/', express.static(path.join(__dirname, 'public')))
 app.use(bodyParser.json())
-app.get('/launcher', launcher)
 app.get('/status', podStatusMemo)
 app.get('/decrypt', decrypted)
 app.post('/decrypt', decrypt)
