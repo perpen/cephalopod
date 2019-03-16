@@ -30,7 +30,6 @@ const CONFIG = (() => {
 function decryptionNeeded() {
     const hasSecrets = fs.existsSync(`${process.env.HOME}/.pod-secrets.gpg`)
     const decrypted = fs.existsSync(`${process.env.HOME}/.pod/secrets`)
-    console.log(`has: ${hasSecrets}, decrypted: ${decrypted}`)
     return hasSecrets && !decrypted
 }
 
@@ -41,7 +40,6 @@ function startTheiaIfNotRunning() {
             console.log("STARTING THEIA")
             // proc.spawn('pod', ['theia', 'start'])
             proc.spawn('bash', ['-c', 'pod theia start &> /tmp/t'])
-            console.log("STARTING THEIA DONE")
         }
     })
 }
@@ -91,6 +89,20 @@ function decrypt(req, res) {
     gpg.stdin.end()
 }
 
+function startUi(req, res) {
+    console.log('startUi')
+    const ui = req.body.ui
+    const starter = {
+      'wetty': () => { proc.spawn('sudo', ['pod', 'wetty' , 'start']) },
+      'theia': () => { proc.spawn('pod', ['theia', 'start']) },
+    }[ui]
+    if (!starter) {
+      console.error(`startUi: unknown ui ${ui}`)
+      return
+    }
+    starter()
+}
+
 function podStatus(req, res) {
     console.log(`target host: ${req.headers['host']}`)
     if (req.url != '/status') return false
@@ -100,7 +112,6 @@ function podStatus(req, res) {
     // FIXME do i need su minus?
     const pairing = proc.spawnSync('su', ['-', CONFIG.user, '-c', `pod pairing status`])
     CONFIG['pairing'] = pairing.stdout.toString()
-    console.log(CONFIG)
 
     res.setHeader('Content-type', 'application/json')
     res.end(JSON.stringify(CONFIG))
@@ -127,7 +138,7 @@ function setupUiRoute(server, ui, port) {
       logLevel: 'debug',
       onError: function onError(err, req, res) {
         console.log('uiProxy error', err)
-        if (err.errno == 'ECONNREFUSED') {
+        if (err.errno == 'ECONNREFUSED' && req.originalUrl == `${context}/`) {
           res.redirect(`/pod/${CONFIG.pod_number}/`)
           return
         }
@@ -147,6 +158,7 @@ app.use(bodyParser.json())
 app.get('/status', podStatusMemo)
 app.get('/decrypt', decrypted)
 app.post('/decrypt', decrypt)
+app.post('/start', startUi)
 
 //app.use(function (req, res, next) {
 //    res.status(404).send('not found')

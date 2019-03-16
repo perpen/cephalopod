@@ -1,24 +1,15 @@
 (function() {
+  var secretsDecrypted = false
   const decryptionElt = document.getElementById('decryption')
   const fieldElt = document.getElementById('decryptionKey')
   const theiaStatusElt = document.getElementById('theiaStatus')
 
-  const data = {
-    pageTitle: "?",
-    sectionTitle: "?",
-    userDisplayName: "?",
-    user: "?",
-    wettyStatus: "?",
-    theiaStatus: "?",
-    decryptionDisplay: "none"
-  }
-  const redraw = (data) => {
-    Object.keys(data).forEach(id => {
+  const redraw = (eltIdToValue) => {
+    Object.keys(eltIdToValue).forEach(id => {
       const elt = document.getElementById(id)
-      if (elt) elt.innerHTML = data[id]
+      if (elt) elt.innerHTML = eltIdToValue[id]
     })
   }
-  redraw(data)
 
   const decrypt = function(decryptionKey) {
     fieldElt.disabled = true
@@ -28,18 +19,21 @@
       method : "POST",
     }
     fetch('decrypt', options)
-      .then(res => {
-        if (res.status === 202) {
-          decryptionElt.style = "display: none;"
-          decrypted = true
-        } else {
-          fieldElt.disabled = false
-        }
-      })
+    .then(res => { secretsMonitor() })
   }
 
   fieldElt.onkeydown = () => {
       if (window.event.keyCode=='13') decrypt(fieldElt.value)
+  }
+
+  const startUi = (name) => {
+    console.log(`startUi ${name}`)
+    const options = {
+      headers : { "content-type" : "application/json; charset=UTF-8"},
+      body : JSON.stringify({ui: name}),
+      method : "POST",
+    }
+    fetch('start', options)
   }
 
   // Retrieve pod info
@@ -48,32 +42,35 @@
     const r = fetch('status')
       .then(res => res.json())
       .then(d => {
-        console.log(d)
-        const data = {
+        redraw({
           pageTitle: `pod ${d.pod_number}@node`,
           sectionTitle: `pod ${d.pod_number}@node`,
           userDisplayName: d.user_display_name,
           user: d.user,
           topOutput: d.top.replace(/\n/g, "<br>"),
           homedirUrl: `<a id="homedirUrl" href="${d.homedir_url}">${d.homedir_url}</a>`,
-        }
-        redraw(data)
+        })
       })
     setTimeout(() => { podMonitor() }, 4000)
   }
   podMonitor()
 
   // Secrets decryption
-  const secretsMonitor = function() {
+  const secretsMonitor = function(repeatInSeconds) {
     console.log(`secrets`)
     const r = fetch('decrypt')
       .then(res => res.json())
-      .then(d => {
-        console.log(d)
+      .then(decrypted => {
+        secretsDecrypted = decrypted
+        // decryptionElt.style = decrypted ? "display: none;" : "display: block;"
+        decryptionElt.style = `display: ${decrypted ? 'none' : 'block'};`
+        fieldElt.disabled = decrypted
       })
-    setTimeout(() => { secretsMonitor() }, 4000)
+    if (repeatInSeconds) {
+      setTimeout(() => { secretsMonitor(repeatInSeconds) }, repeatInSeconds * 1000)
+    }
   }
-  secretsMonitor()
+  secretsMonitor(5)
 
   // Checks whether a UI is started
   const uiMonitor = function(name, path, testPath) {
@@ -88,7 +85,10 @@
       if (res.status == 200) {
         elt.innerHTML = `<a href="${path}">${name}</a>`
       } else {
-        elt.innerHTML = "${name} stopped"
+        elt.innerHTML = `${name} <a id="${name}Starter" href="#">enable</a>`
+        document.getElementById(`${name}Starter`).onclick = () => {
+          startUi(name)
+        }
       }
     })
     setTimeout(() => { uiMonitor(name, path, testPath) }, 4000)
