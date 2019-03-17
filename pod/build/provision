@@ -155,6 +155,12 @@ install_inotify() {
     rm -rf inotify-tools-master
 }
 
+install_jq() {
+    curl -Lo /usr/local/bin/jq \
+        https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64
+    chmod +x /usr/local/bin/jq
+}
+
 ###############
 
 source $(dirname $0)/../config.sh
@@ -169,6 +175,7 @@ if [[ -z "$1" ]]; then
     install_inotify
     install_git
     install_tmux
+    install_jq
     install_wetty
     install_theia
     install_pod

@@ -59,9 +59,7 @@ EOF
 watch_deadly_file() {
     set +x
     while :; do
-        [[ -f /tmp/pod-must-die ]] && {
-            kill 1 || true
-        }
+        [[ -f /tmp/pod-must-die ]] && pkill sshd
         sleep 10
     done &
     set -x
@@ -69,8 +67,8 @@ watch_deadly_file() {
 
 start_apps() {
     # Start UIs
-    pod wetty start "pod $POD_NUMBER"
-    su $POD_USER -c "pod theia start"
+    # pod wetty start "pod $POD_NUMBER"
+    # su $POD_USER -c "pod theia start"
 
     # Start pod app
     set +x

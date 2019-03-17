@@ -18,12 +18,9 @@ die() {
         echo "Death postponed"
         exit 1
     }
+    # This file is checked for in entrypoint
     touch /tmp/pod-must-die
     sleep 30
-}
-
-args() {
-    cat ~/.pod/args
 }
 
 case $1 in
@@ -32,11 +29,11 @@ tmux|pairing|secrets|repos|wetty|theia)
     shift
     eval /pod/cli/pod-$cmd "$@"
     ;;
-die|args)
+die)
     eval "$@"
     ;;
 *)
-    echo "Usage: $0 (die|tmux|args|pairing|secrets|repos|wetty|theia)" 1>&2
+    echo "Usage: $0 (die|tmux|pairing|secrets|repos|wetty|theia)" 1>&2
     exit 2
     ;;
 esac

@@ -23,16 +23,16 @@ message() {
     tmux display-message "$*"
 }
 
-v3() {
+# Open dir in new window, with vertical split
+v2() {
     local dir="$1"
     [[ -d "$dir" ]] || {
-        echo "Usage: $0 v3 DIR" 1>&2
+        echo "Usage: $0 v2 DIR" 1>&2
         exit 2
     }
     local name="$(basename $dir)"
     tmux new-window -n "$name" -c "$dir"
     tmux split-window -h -c "$dir"
-    tmux split-window -v -c "$dir"
     tmux select-pane -t 0
     tmux send-keys vim 'Space' . 'Enter'
     tmux select-pane -t 1
@@ -41,16 +41,16 @@ v3() {
 init() {
     ls ~/src/* &> /dev/null || return 0
     for repo in ~/src/*; do
-        v3 $repo
+        v2 $repo
     done
 }
 
 case $1 in
-init|status|message|banner|h3|v3)
+init|status|message|banner|v2)
     eval "$@"
     ;;
 *)
-    echo "Usage: $0 (status|message|banner|h3|v3)" 1>&2
+    echo "Usage: $0 (status|message|banner|v2)" 1>&2
     exit 2
     ;;
 esac

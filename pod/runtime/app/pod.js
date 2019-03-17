@@ -148,7 +148,6 @@ function setupUiRoute(server, ui, port) {
     })
 
     app.use(theProxy)
-    // server.on('upgrade', theProxy.upgrade)
 }
 
 //////////////////////////////// rest

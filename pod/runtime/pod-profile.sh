@@ -8,20 +8,20 @@
 
     # Run once only
     [[ -f ~/.pod/profiled ]] || {
-        # Projects
-        [[ -f ~/.pod/args ]] && {
-            echo "Processing pod args"
+        echo "Processing pod args"
 
-            # Clone projects
-            mkdir -p ~/src
-            cd ~/src
-            for url in $(< ~/.pod/args); do
-                echo Cloning $url
-                git clone $url
-            done
-            cd
-        }
+        # Clone projects
+        mkdir -p ~/src
+        cd ~/src
+        cat ~/.pod/params.json | jq '.projects_urls' \
+            | sed -r 's/(^"|"$)//g' | sed -r 's/ *, */\n/g' \
+            | while read url; do
+            echo Cloning $url
+            git clone $url
+        done
+
         touch ~/.pod/profiled
+        cd
         read -p "Pod initialised, press enter to start tmux..."
     }
 

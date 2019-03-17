@@ -4,14 +4,14 @@
   "description": "",
   "main": "cephalo.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 0"
+    "test": "true"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "express": "^4.16.4",
-    "express-http-proxy": "^1.5.1",
-    "http-proxy-middleware": "^0.19.1"
-  },
-  "private": true
+    "http-proxy-middleware": "^0.19.1",
+    "memoizee": "^0.4.14",
+    "request": "^2.88.0"
+  }
 }
