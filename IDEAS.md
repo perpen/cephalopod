@@ -35,6 +35,7 @@ ARCHIVAL
 
 PORTAL
 ======
+- should be a separate git repo, using the rest api
 - ldap authentication
 - Page with form:
   - Base image

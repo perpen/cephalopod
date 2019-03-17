@@ -13,7 +13,7 @@
         # Clone projects
         mkdir -p ~/src
         cd ~/src
-        cat ~/.pod/params.json | jq '.projects_urls' \
+        cat ~/.pod/params.json | jq '.projectsUrls' \
             | sed -r 's/(^"|"$)//g' | sed -r 's/ *, */\n/g' \
             | while read url; do
             echo Cloning $url

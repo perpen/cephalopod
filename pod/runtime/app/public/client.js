@@ -43,12 +43,12 @@
       .then(res => res.json())
       .then(d => {
         redraw({
-          pageTitle: `pod ${d.pod_number}@node`,
-          sectionTitle: `pod ${d.pod_number}@node`,
-          userDisplayName: d.user_display_name,
+          pageTitle: `pod ${d.podNumber}@node`,
+          sectionTitle: `pod ${d.podNumber}@node`,
+          userDisplayName: d.userDisplayName,
           user: d.user,
           topOutput: d.top.replace(/\n/g, "<br>"),
-          homedirUrl: `<a id="homedirUrl" href="${d.homedir_url}">${d.homedir_url}</a>`,
+          homedirUrl: `<a id="homedirUrl" href="${d.homedirUrl}">${d.homedirUrl}</a>`,
         })
       })
     setTimeout(() => { podMonitor() }, 4000)

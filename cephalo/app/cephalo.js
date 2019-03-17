@@ -17,6 +17,9 @@ const POD_PORT_RANGE_START = 3000
 const POD_PORT_RANGE_WIDTH = 10
 const POD_PATH_RX = new RegExp('^(/pod/(\\d+))(/.*)?$')
 const COOKIE_PATH_RX = /^(.* Path=)(.*)$/
+const CONTAINER_NAME_RX = /^p(\d+)$/
+const DOCKER_STATS_HEADERS = new RegExp("^CONTAINER ID +NAME +CPU % +MEM USAGE / LIMIT +MEM % +NET I/O +BLOCK I/O +PIDS$")
+const DOCKER_STATS_VALUES = new RegExp("^([^ ]+) +p([0-9]+) +([0-9.]+)% +([^ ]+) / ([^ ]+) +([^ ]+)% +([^ ]+) / ([^ ]+) +([^ ]+) / ([^ ]+) +([^ ]+)$")
 
 const CONFIG = (() => {
   return {
@@ -24,6 +27,56 @@ const CONFIG = (() => {
 }})()
 
 //////////////////////////////// rest
+
+var podStatsByNumber
+
+// regularly updates podStats object
+function collectPodsStats() {
+    const lines = proc.spawnSync('docker', ['stats', '--no-stream'])
+      .stdout.toString().trim().split('\n')
+    if (!DOCKER_STATS_HEADERS.test(lines[0])) {
+      console.error(`unexpected docker stats output: ${lines[0]}`)
+      return {}
+    }
+    const stats = {}
+    lines.slice(1).forEach(line => {
+      const matches = DOCKER_STATS_VALUES.exec(line)
+      if (!matches) {
+        console.error(`unexpected docker stats output: ${line}`)
+        return {}
+      }
+      let [all, containerId, podNumber, cpu, memUsage, memLimit, memPercent, netIn, netOut, blockIn, blockOut, pids] = matches
+      stats[parseInt(podNumber)] = {
+        containerId: containerId,
+        podNumber: parseInt(podNumber),
+        cpu: cpu,
+        memUsage: memUsage,
+        memLimit: memLimit,
+        memPercent: memPercent,
+        netIn: netIn,
+        netOut: netOut,
+        blockIn: blockIn,
+        blockOut: blockOut,
+        pids: pids
+      }
+    })
+    podStatsByNumber = stats
+    setTimeout(collectPodsStats, 10000)
+}
+collectPodsStats()
+
+function restPodStats(req, res) {
+  const podNumber = req.params.podNumber
+  res.setHeader('Content-type', 'application/json')
+  res.end(JSON.stringify(podStatsByNumber[podNumber]))
+}
+
+function restStats(req, res) {
+    res.setHeader('Content-type', 'application/json')
+    res.end(JSON.stringify(podStatsByNumber))
+}
+
+//////////////////////////////// proxy to pod
 
 function podPort(podNumber) {
   return POD_PORT_RANGE_START + podNumber * POD_PORT_RANGE_WIDTH
@@ -83,6 +136,8 @@ app.use('/', express.static(path.join(__dirname, 'public')))
 //app.use(function (req, res, next) {
 //    res.status(404).send('not found')
 //})
+app.get('/stats/:podNumber', restPodStats)
+app.get('/stats', restStats)
 
 var server = http.createServer()
 server.on('request', app)

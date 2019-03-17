@@ -33,17 +33,6 @@ function decryptionNeeded() {
     return hasSecrets && !decrypted
 }
 
-function startTheiaIfNotRunning() {
-    const theiaPath = `http://127.0.0.1:${THEIA_PORT}` //FIXME
-    request.head(theiaPath, (error, response, body) => {
-        if (!response) {
-            console.log("STARTING THEIA")
-            // proc.spawn('pod', ['theia', 'start'])
-            proc.spawn('bash', ['-c', 'pod theia start &> /tmp/t'])
-        }
-    })
-}
-
 function decrypted(req, res) {
     console.log('decrypted')
     res.status(200).send(!decryptionNeeded())
@@ -64,7 +53,6 @@ function decrypt(req, res) {
     const gpg = proc.spawn('bash',
       ['-c', `gpg -d --batch --passphrase-fd 0 --cipher-algo aes256 ${homedir}/.pod-secrets.gpg | tar xfz - -C ${homedir}`],
       {stdio: 'pipe'})
-      // {stdio: ['pipe', process.stdout, process.stderr]})
 
     gpg.on('close', (code) => {
       console.log(`decrypting exit code ${code}`)
@@ -97,7 +85,7 @@ function startUi(req, res) {
       'theia': () => { proc.spawn('pod', ['theia', 'start']) },
     }[ui]
     if (!starter) {
-      console.error(`startUi: unknown ui ${ui}`)
+      console.error(`startUi: unknown ui: ${ui}`)
       return
     }
     starter()
@@ -108,7 +96,7 @@ function podStatus(req, res) {
     if (req.url != '/status') return false
 
     const top = proc.spawnSync('top', ['-bn1'])
-    CONFIG['top'] = top.stderr.toString() + '\n' + top.stdout.toString()
+    CONFIG['top'] = (top.stderr.toString() + '\n' + top.stdout.toString()).trim()
     // FIXME do i need su minus?
     const pairing = proc.spawnSync('su', ['-', CONFIG.user, '-c', `pod pairing status`])
     CONFIG['pairing'] = pairing.stdout.toString()
@@ -139,7 +127,7 @@ function setupUiRoute(server, ui, port) {
       onError: function onError(err, req, res) {
         console.log('uiProxy error', err)
         if (err.errno == 'ECONNREFUSED' && req.originalUrl == `${context}/`) {
-          res.redirect(`/pod/${CONFIG.pod_number}/`)
+          res.redirect(`/pod/${CONFIG.podNumber}/`)
           return
         }
         res.writeHead(500, { 'Content-Type': 'text/plain' })

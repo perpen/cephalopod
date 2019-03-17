@@ -45,12 +45,12 @@ store_pod_params() {
     mkdir $params_dir
     cat <<EOF > "$params_dir/params.json"
 {
-  "pod_number": $POD_NUMBER,
+  "podNumber": $POD_NUMBER,
   "options": "$POD_OPTIONS",
   "user": "$POD_USER",
-  "user_display_name": "$POD_USER_DISPLAY_NAME",
-  "homedir_url": "$POD_HOMEDIR_URL",
-  "projects_urls": "$POD_PROJECTS_URLS"
+  "userDisplayName": "$POD_USER_DISPLAY_NAME",
+  "homedirUrl": "$POD_HOMEDIR_URL",
+  "projectsUrls": "$POD_PROJECTS_URLS"
 }
 EOF
     chown -R $POD_USER:pair $params_dir
