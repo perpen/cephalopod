@@ -67,7 +67,7 @@ watch_deadly_file() {
 
 start_apps() {
     # Start UIs
-    # pod wetty start "pod $POD_NUMBER"
+    pod wetty start "pod $POD_NUMBER"
     # su $POD_USER -c "pod theia start"
 
     # Start pod app

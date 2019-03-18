@@ -23,8 +23,8 @@ const WETTY_PORT = 3001
 const THEIA_PORT = 3002
 const INTERFACE = '0.0.0.0'
 const CONFIG = (() => {
-    const dir = `${process.env.HOME}/.pod`
-    return JSON.parse(fs.readFileSync(`${dir}/params.json`))
+  const dir = `${process.env.HOME}/.pod`
+  return JSON.parse(fs.readFileSync(`${dir}/params.json`))
 })()
 
 function decryptionNeeded() {
@@ -33,13 +33,13 @@ function decryptionNeeded() {
     return hasSecrets && !decrypted
 }
 
-function decrypted(req, res) {
-    console.log('decrypted')
+function restDecrypted(req, res) {
+    console.log('restDecrypted')
     res.status(200).send(!decryptionNeeded())
 }
 
-function decrypt(req, res) {
-    console.log('decrypt')
+function restDecrypt(req, res) {
+    console.log('restDecrypt')
     // Maybe we decrypted from somewhere else, check again
     if (!decryptionNeeded()) {
         res.status(202).end()
@@ -77,35 +77,46 @@ function decrypt(req, res) {
     gpg.stdin.end()
 }
 
-function startUi(req, res) {
-    console.log('startUi')
+function restStartUi(req, res) {
+    console.log('restStartUi')
     const ui = req.body.ui
     const starter = {
       'wetty': () => { proc.spawn('sudo', ['pod', 'wetty' , 'start']) },
       'theia': () => { proc.spawn('pod', ['theia', 'start']) },
     }[ui]
     if (!starter) {
-      console.error(`startUi: unknown ui: ${ui}`)
+      console.error(`restStartUi: unknown ui: ${ui}`)
       return
     }
     starter()
 }
 
-function podStatus(req, res) {
-    console.log(`target host: ${req.headers['host']}`)
-    if (req.url != '/status') return false
+let topOutput = "<pending>"
+function runTopContinuously() {
+  const top = proc.spawn('top -b -d 30 2>&1', {shell: true})
 
-    const top = proc.spawnSync('top', ['-bn1'])
-    CONFIG['top'] = (top.stderr.toString() + '\n' + top.stdout.toString()).trim()
-    // FIXME do i need su minus?
-    const pairing = proc.spawnSync('su', ['-', CONFIG.user, '-c', `pod pairing status`])
-    CONFIG['pairing'] = pairing.stdout.toString()
+  top.stdout.on('data', (data) => {
+    topOutput = data.toString().trim()
+  })
+  top.on('close', (code) => {
+    console.error(`strangely top exited with code ${code}, restarting it`)
+    setTimeout(runTopContinuously, 5000)
+  })
+  top.on('error', (err) => {
+    console.error('top error', err)
+  })
+}
+runTopContinuously()
+
+function restPodStatus(req, res) {
+    console.log(`target host: ${req.headers['host']}`)
+
+    CONFIG['top'] = topOutput
 
     res.setHeader('Content-type', 'application/json')
     res.end(JSON.stringify(CONFIG))
     return true
 }
-const podStatusMemo = memoize(podStatus, {maxAge: 30000})
 
 //////////////////////////////// UIs
 
@@ -142,10 +153,10 @@ function setupUiRoute(server, ui, port) {
 
 app.use('/', express.static(path.join(__dirname, 'public')))
 app.use(bodyParser.json())
-app.get('/status', podStatusMemo)
-app.get('/decrypt', decrypted)
-app.post('/decrypt', decrypt)
-app.post('/start', startUi)
+app.get('/status', restPodStatus)
+app.get('/decrypt', restDecrypted)
+app.post('/decrypt', restDecrypt)
+app.post('/start', restStartUi)
 
 //app.use(function (req, res, next) {
 //    res.status(404).send('not found')

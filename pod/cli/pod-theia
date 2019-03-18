@@ -11,11 +11,15 @@ start() {
         echo "already started" 1>&2
         exit 1
     }
+    
+    local project=$(ls -d ~/src/* | head -1)
+            
     source $NVM_DIR/nvm.sh
     cd $THEIA_DIR/examples/browser
     echo "logging to /var/tmp/theia.out"
     nvm exec $THEIA_NODE_VERSION yarn run \
         start --log-level=debug --port $THEIA_PORT "\$@" \
+        $project
         &> /var/tmp/theia.out &
 }
 

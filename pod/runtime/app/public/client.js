@@ -43,8 +43,8 @@
       .then(res => res.json())
       .then(d => {
         redraw({
-          pageTitle: `pod ${d.podNumber}@node`,
-          sectionTitle: `pod ${d.podNumber}@node`,
+          pageTitle: `pod${d.podNumber}@node`,
+          sectionTitle: `pod${d.podNumber}@<a href="/">node</a>`,
           userDisplayName: d.userDisplayName,
           user: d.user,
           topOutput: d.top.replace(/\n/g, "<br>"),

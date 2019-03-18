@@ -1,6 +1,7 @@
 (function() {
   const NODE_URL = document.location.href.replace(/[#\?].*$/, '')
   const MAX_PROJECT = 4
+  let stats
   let homeInput
   const inputs = []
 
@@ -56,13 +57,16 @@
     if (home) {
       homeInput.value = home
     }
-    const projects = queryParams.get('projects').split(',')
-    let i = 1
-    projects.forEach(project => {
-      const elt = document.getElementById(`project${i}`)
-      if (elt) elt.value = project
-      i += 1
-    })
+    const projectsParam = queryParams.get('projects')
+    if (projectsParam) {
+      const projects = projectsParam.split(',')
+      let i = 1
+      projects.forEach(project => {
+        const elt = document.getElementById(`project${i}`)
+        if (elt) elt.value = project
+        i += 1
+      })
+    }
   }
 
   createInputs()
@@ -77,31 +81,56 @@
   updateMegalink()
 
   document.getElementById('createPod').onclick = () => {
-    const urls = ['project1', 'project2'].map(eltId => {
+    const urls = ['home', 'project1', 'project2', 'project3'].map(eltId => {
         return document.getElementById(eltId).value
       })
       .filter(val => val)
-    document.getElementById('createPod').innerHTML = 'creating...'
+    document.getElementById('createPod').innerHTML = 'wait to be redirected...'
     document.getElementById('createPod').onclick = () => {}
     createPod(urls)
   }
 
   const createPod = (urls) => {
     console.log(`createPod: ${urls}`)
+    const options = {
+      headers : { "content-type" : "application/json; charset=UTF-8"},
+      body : JSON.stringify({
+          homedir: urls[0],
+          projects: urls.slice(1),
+        }),
+      method : "POST",
+    }
+    fetch('create', options)
+    .then(res => res.json())
+    .then(podUrl => {
+        waitForCreation(podUrl)
+      })
+  }
+
+  const waitForCreation = (podUrl) => {
+    fetch(podUrl, { method: 'HEAD' })
+    .then(res => {
+      if (res.ok) document.location.href = podUrl
+    })
+    setTimeout(() => { waitForCreation(podUrl) }, 2000)
   }
 
   // Retrieve pod info
   const podsStatsMonitor = function() {
-    console.log(`pod stats`)
     const r = fetch('stats')
       .then(res => res.json())
       .then(d => {
+        stats = d
+        const statsHtml = Object.keys(stats).map(num => {
+          return `<a href="/pod/${num}/">pod${num}</a> ${stats[num]['metrics']['cpu']}% ${stats[num]['metrics']['memPercent']}% ${stats[num]['userDisplayName']}`
+        }).join('<br>')
         redraw({
           pageTitle: `node`,
           sectionTitle: `node`,
+          podsStats: statsHtml,
         })
       })
-    setTimeout(() => { podsStatsMonitor() }, 4000)
+    setTimeout(() => { podsStatsMonitor() }, 10000)
   }
   podsStatsMonitor()
 })()

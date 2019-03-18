@@ -4,8 +4,6 @@
   </head>
   <body>
     <div>
-      <h2 id="sectionTitle">...</h2>
-      <span id="podsCount">...</span> pods
       <div id="createSection">
         <h3>create pod</h3>
         <div id="createInputs"/>
@@ -13,9 +11,15 @@
           <input type="text" id="megalink" size=80 disabled="true"/>
           <a id="copyMegalink" href="#">copy to clipboard</a>
         </div>
-        <a id="createPod" href="#">launch</a>
+        <a id="createPod" href="#">create</a>
       </div>
-   </div>
+      <h2 id="sectionTitle">...</h2>
+      <div id="statsSection">
+        POD# CPU MEM OWNER
+        <div id="podsStats">
+        </div>
+      </div>
+    </div>
     <script type="text/javascript" src="client.js"></script>
   </body>
 </html>

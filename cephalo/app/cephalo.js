@@ -23,7 +23,8 @@ const DOCKER_STATS_VALUES = new RegExp("^([^ ]+) +p([0-9]+) +([0-9.]+)% +([^ ]+)
 
 const CONFIG = (() => {
   return {
-    hostname: os.hostname()
+    hostname: os.hostname(),
+    baseUrl: `http://localhost:${PORT}`,
 }})()
 
 //////////////////////////////// rest
@@ -45,8 +46,10 @@ function collectPodsStats() {
         console.error(`unexpected docker stats output: ${line}`)
         return {}
       }
-      let [all, containerId, podNumber, cpu, memUsage, memLimit, memPercent, netIn, netOut, blockIn, blockOut, pids] = matches
-      stats[parseInt(podNumber)] = {
+
+      let [all, containerId, podNumber, cpu, memUsage, memLimit, memPercent,
+           netIn, netOut, blockIn, blockOut, pids] = matches
+      const metrics = {
         containerId: containerId,
         podNumber: parseInt(podNumber),
         cpu: cpu,
@@ -59,6 +62,20 @@ function collectPodsStats() {
         blockOut: blockOut,
         pids: pids
       }
+
+      let statusUrl = `${CONFIG.baseUrl}/pod/${podNumber}/status`
+      request({
+          url: statusUrl,
+        },
+        (err, res, body) => {
+          if (err) {
+            console.error(`error getting ${statusUrl}`, err)
+            return
+          }
+          const podStatus = JSON.parse(body)
+          podStatus['metrics'] = metrics
+          stats[parseInt(podNumber)] = podStatus
+        })
     })
     podStatsByNumber = stats
     setTimeout(collectPodsStats, 10000)
@@ -74,6 +91,37 @@ function restPodStats(req, res) {
 function restStats(req, res) {
     res.setHeader('Content-type', 'application/json')
     res.end(JSON.stringify(podStatsByNumber))
+}
+
+function nextPodNumber() {
+  // FIXME should be persistent, cluster-wide
+  const NEXT_POD_NUMBER_PATH = '/tmp/next-pod-number'
+  const num = parseInt(fs.readFileSync(NEXT_POD_NUMBER_PATH))
+  fs.writeFileSync(NEXT_POD_NUMBER_PATH, `${num + 1}`)
+  return num
+}
+
+function restCreate(req, res) {
+  const homedir = req.body.homedir
+  const projects = req.body.projects
+  const user = '43880338'
+  const userDisplayName = 'Ducrocq, Henri'
+  const podNumber = nextPodNumber()
+
+  const args = [
+    'columnated/pod:latest',
+    `${podNumber}`,
+    'wetty',
+    user,
+    userDisplayName,
+  ]
+  .concat([homedir])
+  .concat(projects)
+  console.log(args)
+  proc.spawn('./start-pod', args)
+
+  res.setHeader('Content-type', 'application/json')
+  res.end(JSON.stringify(`${CONFIG.baseUrl}/pod/${podNumber}/`))
 }
 
 //////////////////////////////// proxy to pod
@@ -136,8 +184,10 @@ app.use('/', express.static(path.join(__dirname, 'public')))
 //app.use(function (req, res, next) {
 //    res.status(404).send('not found')
 //})
+app.use(bodyParser.json())
 app.get('/stats/:podNumber', restPodStats)
 app.get('/stats', restStats)
+app.post('/create', restCreate)
 
 var server = http.createServer()
 server.on('request', app)
