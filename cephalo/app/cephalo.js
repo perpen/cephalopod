@@ -4,12 +4,10 @@ const express = require('express')
 const app = express()
 const http = require('http')
 const request = require('request')
-const url = require('url')
 const fs = require('fs')
 const path = require('path')
 const proc = require('child_process')
 const bodyParser = require('body-parser')
-const memoize = require('memoizee')
 
 const PORT = 8080
 const INTERFACE = '0.0.0.0'
