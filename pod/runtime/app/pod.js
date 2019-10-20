@@ -10,13 +10,11 @@ const proxy = require('http-proxy-middleware')
 const express = require('express')
 const app = express()
 const http = require('http')
-const request = require('request')
 const url = require('url')
 const fs = require('fs')
 const path = require('path')
 const proc = require('child_process')
 const bodyParser = require('body-parser')
-const memoize = require('memoizee')
 
 const PORT = 3000
 const WETTY_PORT = 3001
