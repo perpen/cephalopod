@@ -1,3 +1,5 @@
+Not proper doc.
+
 CEPHALO + POD
 =============
 Two sub-projects:
@@ -60,7 +62,7 @@ FLOW
 - Login
     - /pod/pod-profile.sh sourced by user's .bash_profile
         - Decrypts user secrets
-        - Clones projects into ~/src        
+        - Clones projects into ~/src
         - Starts tmux
 
 UPDATING THE DOCKER BASE IMAGE
